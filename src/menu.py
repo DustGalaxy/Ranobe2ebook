@@ -251,7 +251,6 @@ class Ranobe2ebook(App):
             log.write_line("Если вы уже авторизовивались, сделайте это еще раз.")
             return
         log.write_line("Получили данные о ранобе.")
-
         log.write_line("\nПолучаем список ветвей перевода...")
         branchs = get_branchs(self.ranobe_data.get("id"))
 

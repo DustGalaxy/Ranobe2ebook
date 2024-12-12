@@ -9,9 +9,11 @@ from src.config import config
 from src.model import Attachment, ChapterData, ChapterMeta
 from src.utils import is_html, is_url
 
+BASE_API_URL = "https://api2.mangalib.me/api"
+
 
 def get_branchs(id: str) -> dict:
-    url = f"https://api.lib.social/api/branches/{id}?team_defaults=1"
+    url = f"{BASE_API_URL}/branches/{id}?team_defaults=1"
 
     response = requests.get(url)
 
@@ -22,7 +24,7 @@ def get_branchs(id: str) -> dict:
 
 
 def get_ranobe_data(name: str) -> dict:
-    url_base = f"https://api.lib.social/api/manga/{name}?"
+    url_base = f"{BASE_API_URL}/manga/{name}?"
     url = url_base + "&".join(
         [
             f"fields[]={item}"
@@ -39,7 +41,12 @@ def get_ranobe_data(name: str) -> dict:
     )
     response = requests.get(
         url,
-        headers={"Authorization": f"Bearer {config.token}"},
+        headers={
+            "Origin": "https://ranobelib.me",
+            "Referer": "https://ranobelib.me/",
+            "Authorization": f"Bearer {config.token}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
+        },
     )
     if response.status_code != 200:
         return None
@@ -48,7 +55,7 @@ def get_ranobe_data(name: str) -> dict:
 
 
 def get_chapters_data(name: str) -> list[ChapterMeta]:
-    url = f"https://api.lib.social/api/manga/{name}/chapters"
+    url = f"{BASE_API_URL}/manga/{name}/chapters"
 
     response = requests.get(
         url,
@@ -104,7 +111,7 @@ def get_image_content(url: str, format: str) -> bytes:
 
 
 def get_chapter(name: str, priority_branch: str, number: int, volume: int) -> ChapterData:
-    url = f"https://api.lib.social/api/manga/{name}/chapter?branch_id={priority_branch}&number={number}&volume={volume}"
+    url = f"{BASE_API_URL}/manga/{name}/chapter?branch_id={priority_branch}&number={number}&volume={volume}"
     response = requests.get(
         url,
         headers={
