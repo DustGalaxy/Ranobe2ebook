@@ -65,10 +65,11 @@ class EpubHandler(Handler):
             elif item.get("type") == "paragraph":
                 text = ""
                 paragraph_content = item.get("content")
-                if paragraph_content and paragraph_content[0].get("type") == "text":
-                    text = paragraph_content[0].get("text")
-
-                tags.append(f"<p>{text}</p>")
+                if paragraph_content:
+                    for element in paragraph_content:
+                        if element.get("type") == "text":
+                            text += element.get("text")
+                    tags.append(f"<p>{text}</p>")
 
             elif item.get("type") == "horizontalRule":
                 tags.append("<hr/>")
