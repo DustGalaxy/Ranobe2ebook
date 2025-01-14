@@ -9,6 +9,7 @@ import requests
 from src.model import ChapterData, ChapterMeta, Handler, Image
 from src.api import get_chapter, get_image_content
 
+from src.utils import html_text_formatting
 
 class EpubHandler(Handler):
     book: epub.EpubBook
@@ -68,7 +69,19 @@ class EpubHandler(Handler):
                 if paragraph_content:
                     for element in paragraph_content:
                         if element.get("type") == "text":
-                            text += element.get("text")
+                            if "marks" in element:
+                                pre_tag = ""
+                                post_tag = ""
+                                for mark in element.get("marks"):
+                                    tag = html_text_formatting(mark.get("type"))
+                                    if tag == -1:
+                                        self.log_func(f"Не известный тип формата {mark.get("type")}")
+                                    pre_tag += f"<{tag}>"
+                                    post_tag += f"</{tag}>"
+                                text += pre_tag + element.get("text") + post_tag
+                            else:
+                                text += element.get("text")
+                            
                     tags.append(f"<p>{text}</p>")
 
             elif item.get("type") == "horizontalRule":
