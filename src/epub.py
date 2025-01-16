@@ -7,16 +7,12 @@ from ebooklib import epub
 import requests
 
 from src.model import ChapterData, ChapterMeta, Handler, Image
-from src.api import get_chapter, get_image_content
+from src.api import get_chapter, get_image_content, EBookHandler
 
 from src.utils import html_text_formatting
 
-class EpubHandler(Handler):
+class EpubHandler(EBookHandler):
     book: epub.EpubBook
-    log_func: Callable
-    progress_bar_step: Callable
-    min_volume: str
-    max_volume: str
 
     def _parse_html(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
         try:
@@ -42,26 +38,20 @@ class EpubHandler(Handler):
             self.log_func(e)
 
         return tags, images
-
-    def _parse_doc_content(self, paragraph_content) -> str:
-        text = ""
-        if paragraph_content:
-            for element in paragraph_content:
-                if element.get("type") == "text":
-                    if "marks" in element:
-                        pre_tag = ""
-                        post_tag = ""
-                        for mark in element.get("marks"):
-                            tag = html_text_formatting(mark.get("type"))
-                            if tag == -1:
-                                self.log_func(f"Не известный тип формата {mark.get("type")}")
-                            pre_tag += f"<{tag}>"
-                            post_tag += f"</{tag}>"
-                        text += pre_tag + element.get("text") + post_tag
-                    else:
-                        text += element.get("text")
-        return text
-
+    
+    def _html_text_formatting(self, mark_type) -> str:
+        match mark_type:
+            case "bold":
+                return "b"
+            case "italic":
+                return "i"
+            case "underline":
+                return "ins"
+            case "strike":
+                return "del"
+            case _:
+                return -1
+            
     def _parse_doc(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
         attachments = chapter.attachments
         img_base_url = "https://ranobelib.me"
@@ -84,8 +74,7 @@ class EpubHandler(Handler):
 
             elif item.get("type") == "paragraph":
                 paragraph_content = item.get("content")
-                if paragraph_content:
-                    tags.append(f"<p>{self._parse_doc_content(paragraph_content)}</p>")
+                tags.append(f"<p>{self._parse_doc_content(paragraph_content)}</p>")
 
             elif item.get("type") == "horizontalRule":
                 tags.append("<hr/>")
@@ -93,8 +82,7 @@ class EpubHandler(Handler):
             elif item.get("type") == "heading":
                 level = item.get("level")
                 paragraph_content = item.get("content")
-                if paragraph_content:
-                    tags.append(f"<h{level}>{self._parse_doc_content(paragraph_content)}</h{level}>")
+                tags.append(f"<h{level}>{self._parse_doc_content(paragraph_content)}</h{level}>")
 
         return tags, images
 

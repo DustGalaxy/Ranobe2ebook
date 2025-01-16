@@ -7,16 +7,12 @@ from FB2 import FictionBook2
 from bs4 import BeautifulSoup
 
 from src.model import ChapterData, ChapterMeta, Handler
-from src.api import get_chapter
+from src.api import get_chapter, EBookHandler
 from src.utils import set_authors
 
 
-class FB2Handler(Handler):
+class FB2Handler(EBookHandler):
     book: FictionBook2
-    log_func: Callable
-    progress_bar_step: Callable
-    min_volume: str
-    max_volume: str
 
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
         try:
@@ -29,6 +25,22 @@ class FB2Handler(Handler):
 
         return tags
 
+    def _html_text_formatting(self, mark_type) -> str:
+        match mark_type:
+            case "bold":
+                return "strong"
+            case "italic":
+                return "emphasis"
+            case "underline":
+                return "" #В FB2 нет отдельного тега для подчеркивания текста
+            case "strike":
+                return "strikethrough"
+            case _:
+                return -1
+            
+    def _parse_doc_marks(self, marks, text):
+        return text
+
     def _parse_doc(self, chapter: ChapterData) -> list[ET.Element]:
         tags: list = []
 
@@ -37,12 +49,8 @@ class FB2Handler(Handler):
                 pass
 
             elif item.get("type") == "paragraph":
-                text = ""
-                paragraph_content = item.get("content")
-                if paragraph_content and paragraph_content[0].get("type") == "text":
-                    text = paragraph_content[0].get("text")
                 tag = ET.Element("p")
-                tag.text = text
+                tag.text = self._parse_doc_content(item.get("content"))
                 tags.append(tag)
 
             elif item.get("type") == "horizontalRule":
