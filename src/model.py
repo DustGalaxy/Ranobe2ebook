@@ -69,13 +69,20 @@ class Handler(ABC):
     min_volume: str
     max_volume: str
 
-
     def __init__(self, log_func: Callable, progress_bar_step: Callable) -> None:
         self.log_func = log_func
         self.progress_bar_step = progress_bar_step
 
     @abstractmethod
-    def _html_text_formatting(self, mark_type) -> str:
+    def _get_tag_name(self, mark_type: str) -> str:
+        pass
+
+    @abstractmethod
+    def _pars_marks(self, *args, **kwargs) -> Any:
+        pass
+
+    @abstractmethod
+    def _parse_paragraph(self, paragraph_content: list[dict]) -> Any:
         pass
 
     @abstractmethod

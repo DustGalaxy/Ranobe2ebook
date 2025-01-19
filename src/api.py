@@ -155,28 +155,3 @@ def get_chapter(name: str, priority_branch: str, number: int, volume: int) -> Ch
             content=content,
             attachments=attachments,
         )
-
-class EBookHandler(Handler):
-
-    def _parse_doc_marks(self, marks, text):
-        pre_tag = ""
-        post_tag = ""
-        for mark in marks:
-            tag = self._html_text_formatting(mark.get("type"))
-            if tag == -1:
-                self.log_func(f"Не известный тип формата {mark.get("type")}")
-            else:
-                pre_tag += f"<{tag}>"
-                post_tag += f"</{tag}>"
-        return pre_tag + text + post_tag
-    
-    def _parse_doc_content(self, paragraph_content) -> str:
-        text = ""
-        if paragraph_content:
-            for element in paragraph_content:
-                if element.get("type") == "text":
-                    if "marks" in element:
-                        text += self._parse_doc_marks(element.get("marks"), element.get("text"))
-                    else:
-                        text += element.get("text")
-        return text

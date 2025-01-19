@@ -1,5 +1,4 @@
 import time
-from typing import Callable
 from xml.etree import ElementTree as ET
 
 import requests
@@ -7,11 +6,11 @@ from FB2 import FictionBook2
 from bs4 import BeautifulSoup
 
 from src.model import ChapterData, ChapterMeta, Handler
-from src.api import get_chapter, EBookHandler
+from src.api import get_chapter
 from src.utils import set_authors
 
 
-class FB2Handler(EBookHandler):
+class FB2Handler(Handler):
     book: FictionBook2
 
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
@@ -25,37 +24,67 @@ class FB2Handler(EBookHandler):
 
         return tags
 
-    def _html_text_formatting(self, mark_type) -> str:
+    def _get_tag_name(self, mark_type: str) -> str:
         match mark_type:
             case "bold":
                 return "strong"
             case "italic":
                 return "emphasis"
             case "underline":
-                return "" #В FB2 нет отдельного тега для подчеркивания текста
+                return "custom"  # В FB2 нет отдельного тега для подчеркивания текста
             case "strike":
                 return "strikethrough"
             case _:
-                return -1
-            
-    def _parse_doc_marks(self, marks, text):
-        return text
+                return "custom"
+
+    def _parse_marks(self, marks: list, tag: ET.Element, text: str, index: int = 0) -> ET.Element:
+        if index >= len(marks):
+            tag.text = text
+            return tag
+
+        tag_type = self._get_tag_name(marks[index].get("type"))
+        new_tag = ET.Element(tag_type)
+        tag.append(self._parse_marks(marks, new_tag, text, index + 1))
+        return tag
+
+    def _parse_paragraph(self, paragraph_content: list[dict]) -> ET.Element:
+        paragraph: ET.Element = ET.Element("p")
+        if not paragraph_content:
+            return paragraph
+
+        for element in paragraph_content:
+            if element.get("type") == "text":
+                ETelement = ET.Element("custom")
+
+                if "marks" in element:
+                    self._parse_marks(element.get("marks"), ETelement, element.get("text"))
+                else:
+                    ETelement.text = element.get("text")
+
+                paragraph.append(ETelement)
+
+        return paragraph
 
     def _parse_doc(self, chapter: ChapterData) -> list[ET.Element]:
         tags: list = []
 
         for item in chapter.content:
-            if item.get("type") == "image":
-                pass
-
-            elif item.get("type") == "paragraph":
-                tag = ET.Element("p")
-                tag.text = self._parse_doc_content(item.get("content"))
-                tags.append(tag)
-
-            elif item.get("type") == "horizontalRule":
-                tags.append(ET.Element("hr"))
-
+            item_type = item.get("type")
+            match item_type:
+                case "paragraph":
+                    paragraph = self._parse_doc_content(item.get("content"))
+                    tags.append(paragraph)
+                case "horizontalRule":
+                    tags.append(ET.Element("empty-line"))
+                case "heading":
+                    level = item.get("attrs").get("level")
+                    paragraph_content = item.get("content")
+                    if level == 2:
+                        tag = ET.Element("title")
+                    elif level == 3:
+                        tag = ET.Element("subtitle")
+                    tag.append(self._parse_paragraph(paragraph_content))
+                    tags.append(tag)
         return tags
 
     def save_book(self, dir: str) -> None:

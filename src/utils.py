@@ -103,16 +103,3 @@ def is_valid_url(url) -> bool:
         return bool(pattern.match(parsed.path))
 
     return False
-
-def html_text_formatting(mark_type) -> str:
-    match mark_type:
-        case "bold":
-            return "b"
-        case "italic":
-            return "i"
-        case "underline":
-            return "ins"
-        case "strike":
-            return "del"
-        case _:
-            return -1

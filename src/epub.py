@@ -1,17 +1,14 @@
 import time
-from typing import Callable
-
 
 from bs4 import BeautifulSoup
 from ebooklib import epub
 import requests
 
-from src.model import ChapterData, ChapterMeta, Handler, Image
-from src.api import get_chapter, get_image_content, EBookHandler
+from src.model import ChapterData, ChapterMeta, Image, Handler
+from src.api import get_chapter, get_image_content
 
-from src.utils import html_text_formatting
 
-class EpubHandler(EBookHandler):
+class EpubHandler(Handler):
     book: epub.EpubBook
 
     def _parse_html(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
@@ -38,8 +35,8 @@ class EpubHandler(EBookHandler):
             self.log_func(e)
 
         return tags, images
-    
-    def _html_text_formatting(self, mark_type) -> str:
+
+    def _get_tag_name(self, mark_type: str) -> str:
         match mark_type:
             case "bold":
                 return "b"
@@ -50,8 +47,31 @@ class EpubHandler(EBookHandler):
             case "strike":
                 return "del"
             case _:
-                return -1
-            
+                return ""
+
+    def _parse_marks(self, marks: list[str], text: str) -> str:
+        pre_tag: list[str] = []
+        post_tag: list[str] = []
+        for mark in marks:
+            tag = self._get_tag_name(mark.get("type"))
+            pre_tag.append(f"<{tag}>")
+            post_tag.append(f"</{tag}>")
+
+        return text if len(pre_tag) == 0 else "".join(pre_tag) + text + "".join(post_tag[::-1])
+
+    def _parse_paragraph(self, paragraph_content: list[dict]) -> str:
+        text = ""
+        if not paragraph_content:
+            return text
+
+        for element in paragraph_content:
+            if element.get("type") == "text":
+                if "marks" in element:
+                    text += self._parse_marks(element.get("marks"), element.get("text"))
+                else:
+                    text += element.get("text")
+        return text
+
     def _parse_doc(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
         attachments = chapter.attachments
         img_base_url = "https://ranobelib.me"
@@ -68,21 +88,20 @@ class EpubHandler(EBookHandler):
             )
 
         for item in chapter.content:
-            if item.get("type") == "image":
-                img_name = item.get("attrs").get("images")[-1].get("image")
-                tags.append(f"<img src='static/{images.get(img_name).uid}'/>")
-
-            elif item.get("type") == "paragraph":
-                paragraph_content = item.get("content")
-                tags.append(f"<p>{self._parse_doc_content(paragraph_content)}</p>")
-
-            elif item.get("type") == "horizontalRule":
-                tags.append("<hr/>")
-
-            elif item.get("type") == "heading":
-                level = item.get("level")
-                paragraph_content = item.get("content")
-                tags.append(f"<h{level}>{self._parse_doc_content(paragraph_content)}</h{level}>")
+            item_type = item.get("type")
+            match item_type:
+                case "image":
+                    img_name = item.get("attrs").get("images")[-1].get("image")
+                    tags.append(f"<img src='static/{images.get(img_name).uid}'/>")
+                case "paragraph":
+                    paragraph_content = item.get("content")
+                    tags.append(f"<p>{self._parse_paragraph(paragraph_content)}</p>")
+                case "horizontalRule":
+                    tags.append("<hr/>")
+                case "heading":
+                    level = item.get("attrs").get("level")
+                    paragraph_content = item.get("content")
+                    tags.append(f"<h{level}>{self._parse_paragraph(paragraph_content)}</h{level}>")
 
         return tags, images
 
