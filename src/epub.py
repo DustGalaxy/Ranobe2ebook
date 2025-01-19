@@ -7,15 +7,12 @@ from ebooklib import epub
 import requests
 
 from src.model import ChapterData, ChapterMeta, Handler, Image
-from src.api import get_chapter, get_image_content
+from src.api import get_chapter, get_image_content, EBookHandler
 
+from src.utils import html_text_formatting
 
-class EpubHandler(Handler):
+class EpubHandler(EBookHandler):
     book: epub.EpubBook
-    log_func: Callable
-    progress_bar_step: Callable
-    min_volume: str
-    max_volume: str
 
     def _parse_html(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
         try:
@@ -41,7 +38,20 @@ class EpubHandler(Handler):
             self.log_func(e)
 
         return tags, images
-
+    
+    def _html_text_formatting(self, mark_type) -> str:
+        match mark_type:
+            case "bold":
+                return "b"
+            case "italic":
+                return "i"
+            case "underline":
+                return "ins"
+            case "strike":
+                return "del"
+            case _:
+                return -1
+            
     def _parse_doc(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
         attachments = chapter.attachments
         img_base_url = "https://ranobelib.me"
@@ -63,15 +73,16 @@ class EpubHandler(Handler):
                 tags.append(f"<img src='static/{images.get(img_name).uid}'/>")
 
             elif item.get("type") == "paragraph":
-                text = ""
                 paragraph_content = item.get("content")
-                if paragraph_content and paragraph_content[0].get("type") == "text":
-                    text = paragraph_content[0].get("text")
-
-                tags.append(f"<p>{text}</p>")
+                tags.append(f"<p>{self._parse_doc_content(paragraph_content)}</p>")
 
             elif item.get("type") == "horizontalRule":
                 tags.append("<hr/>")
+
+            elif item.get("type") == "heading":
+                level = item.get("level")
+                paragraph_content = item.get("content")
+                tags.append(f"<h{level}>{self._parse_doc_content(paragraph_content)}</h{level}>")
 
         return tags, images
 

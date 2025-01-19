@@ -66,10 +66,17 @@ class Config:
 class Handler(ABC):
     log_func: Callable
     progress_bar_step: Callable
+    min_volume: str
+    max_volume: str
+
 
     def __init__(self, log_func: Callable, progress_bar_step: Callable) -> None:
         self.log_func = log_func
         self.progress_bar_step = progress_bar_step
+
+    @abstractmethod
+    def _html_text_formatting(self, mark_type) -> str:
+        pass
 
     @abstractmethod
     def fill_book(
