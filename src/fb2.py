@@ -72,7 +72,7 @@ class FB2Handler(Handler):
             item_type = item.get("type")
             match item_type:
                 case "paragraph":
-                    paragraph = self._parse_doc_content(item.get("content"))
+                    paragraph = self._parse_paragraph(item.get("content"))
                     tags.append(paragraph)
                 case "horizontalRule":
                     tags.append(ET.Element("empty-line"))
