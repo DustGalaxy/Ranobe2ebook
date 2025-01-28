@@ -4,10 +4,9 @@ from PIL import Image
 import PIL
 import cloudscraper
 import requests
-from typing import Callable
 
 from src.config import config
-from src.model import Attachment, ChapterData, ChapterMeta, Handler
+from src.model import Attachment, ChapterData, ChapterMeta
 from src.utils import is_html, is_url
 
 BASE_API_URL = "https://api2.mangalib.me/api"

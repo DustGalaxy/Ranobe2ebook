@@ -1,32 +1,46 @@
-#  import argparse
-import traceback
-import os
+import logging
 from pathlib import Path
+from typing import Dict
 
+from model import Handler
 from src.menu import Ranobe2ebook
 from src.fb2 import FB2Handler
 from src.epub import EpubHandler
 
-if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--test", type=str, default=None)
-    # args = parser.parse_args()
 
-    # if args.test:
-    #     print("Запущен скрипт с включенной детализацией")
+def setup_logging(logs_dir: Path) -> None:
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        filename=logs_dir / "app.log",
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
-    doc_path = os.path.normpath(os.path.expanduser("~/Documents"))
-    logs_dir = f"{doc_path}\\ranobelib-parser-logs"
-    Path(f"{logs_dir}").mkdir(parents=True, exist_ok=True)
+
+def get_handlers() -> Dict[str, Handler]:
+    """Возвращает словарь доступных обработчиков форматов."""
+    return {"fb2": FB2Handler, "epub": EpubHandler}
+
+
+def main() -> None:
+    docs_path = Path.home() / "Documents"
+    logs_dir = docs_path / "ranobelib-parser-logs"
+
+    setup_logging(logs_dir)
+    logger = logging.getLogger(__name__)
+
     try:
-        app = Ranobe2ebook(handlers={"fb2": FB2Handler, "epub": EpubHandler})
+        app = Ranobe2ebook(handlers=get_handlers())
         app.run()
-    except RuntimeError:
-        pass
-    except Exception:
-        full_path = f"{logs_dir}\\traceback.txt"
+    except RuntimeError as e:
+        logger.error(f"Runtime error occurred: {str(e)}")
+    except Exception as e:
+        logger.exception("Произошла непредвиденная ошибка")
+        print(f"Произошла непредвиденная ошибка.\nПодробности в файле: {logs_dir}/app.log")
+    finally:
+        input("Нажмите Enter для выхода...")
 
-        print("Произошла непредвиденная ошибка.\nПодробности в файле: " + full_path)
-        print("\n" + ("-" * 60) + "\n", file=open(full_path, "a"))
-        traceback.print_exc(file=open(full_path, "a"))
-    input("Нажмите Enter для выхода...")
+
+if __name__ == "__main__":
+    main()
