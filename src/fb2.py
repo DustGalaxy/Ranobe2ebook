@@ -37,6 +37,30 @@ class FB2Handler(Handler):
             case _:
                 return "custom"
 
+    def _parse_list(self, list_obj: dict, list_type: str, level=1) -> list[ET.Element]:
+        list_tags: list[ET.Element] = []
+        for i, list_item in enumerate(list_obj, start=1):
+            if "content" not in list_item:
+                continue
+
+            paragraph = ET.Element("p")
+            prefix = " " * (level * 2) + f"{i}. " if list_type == "orderedList" else "• "
+
+            for element in list_item.get("content"):
+                element_type = element.get("type")
+
+                if element_type == "paragraph":
+                    paragraph = self._parse_paragraph(element.get("content"))
+                    paragraph.text = prefix + (paragraph.text or "")
+
+                elif element_type in ["bulletList", "orderedList"]:
+                    nested_list = self._parse_list(element.get("content"), element_type, level + 1)
+                    list_tags.extend(nested_list)
+
+            list_tags.append(paragraph)
+
+        return list_tags
+
     def _parse_marks(self, marks: list, tag: ET.Element, text: str, index: int = 0) -> ET.Element:
         if index >= len(marks):
             tag.text = text
@@ -76,6 +100,10 @@ class FB2Handler(Handler):
                     tags.append(paragraph)
                 case "horizontalRule":
                     tags.append(ET.Element("empty-line"))
+                case "bulletList":
+                    list_items = item.get("content")
+                    bulletList = self._parse_list(list_items, "bulletList")
+                    tags.extend(bulletList)
                 case "heading":
                     level = item.get("attrs").get("level")
                     paragraph_content = item.get("content")

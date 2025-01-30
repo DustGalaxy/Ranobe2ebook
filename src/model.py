@@ -78,6 +78,10 @@ class Handler(ABC):
         pass
 
     @abstractmethod
+    def _parse_list(self, *args, **kwargs) -> Any:
+        pass
+
+    @abstractmethod
     def _parse_marks(self, *args, **kwargs) -> Any:
         pass
 
