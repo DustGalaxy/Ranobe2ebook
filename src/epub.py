@@ -72,6 +72,26 @@ class EpubHandler(Handler):
                     text += element.get("text")
         return text
 
+    def _parse_list(self, list_content: list[dict], type: str) -> list[str]:
+        list_tags: list[str] = []
+        tag = "ul" if type == "bullet" else "ol"
+        list_tags.append(f"<{tag}>")
+        for list_item in list_content:
+            for list_item_content in list_item.get("content"):
+                match list_item_content.get("type"):
+                    case "paragraph":
+                        paragraph_content = list_item_content.get("content")
+                        list_tags.append(f"<li>{self._parse_paragraph(paragraph_content)}</li>")
+                    case "bulletList":
+                        list_items = list_item_content.get("content")
+                        list_tags.extend(self._parse_list(list_items), "bullet")
+                    case "orderedList":
+                        list_items = list_item_content.get("content")
+                        list_tags.extend(self._parse_list(list_items), "ordered")
+        list_tags.append(f"</{tag}>")
+
+        return list_tags
+
     def _parse_doc(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
         attachments = chapter.attachments
         img_base_url = "https://ranobelib.me"
@@ -98,6 +118,12 @@ class EpubHandler(Handler):
                     tags.append(f"<p>{self._parse_paragraph(paragraph_content)}</p>")
                 case "horizontalRule":
                     tags.append("<hr/>")
+                case "bulletList":
+                    list_items = item.get("content")
+                    tags.extend(self._parse_list(list_items), "bullet")
+                case "orderedList":
+                    list_items = item.get("content")
+                    tags.extend(self._parse_list(list_items), "ordered")
                 case "heading":
                     level = item.get("attrs").get("level")
                     paragraph_content = item.get("content")

@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
+import traceback
+
 import pyperclip
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -364,7 +366,7 @@ class Ranobe2ebook(App):
             )
 
         except Exception as e:
-            log.write_line(str(e))
+            log.write_line("".join(traceback.format_exception(type(e), e, e.__traceback__)))
 
     @work(name="end_ebook_worker", exclusive=True, thread=True)
     async def end_ebook_worker(self) -> None:

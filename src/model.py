@@ -49,7 +49,7 @@ class ChapterData:
     number: int
     volume: int
     type: Literal["doc", "html"]
-    content: dict
+    content: list[dict]
     attachments: list[Attachment] = field(default_factory=list)
 
 

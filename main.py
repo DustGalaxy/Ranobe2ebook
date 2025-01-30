@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from typing import Dict
 
-from model import Handler
+from src.model import Handler
 from src.menu import Ranobe2ebook
 from src.fb2 import FB2Handler
 from src.epub import EpubHandler
