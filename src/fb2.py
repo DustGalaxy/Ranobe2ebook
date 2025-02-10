@@ -76,6 +76,11 @@ class FB2Handler(Handler):
         if not paragraph_content:
             return paragraph
 
+        attrs = paragraph.get("attrs")
+        if attrs:
+            aling = attrs.get("textAlign")
+            paragraph.attrib["align"] = aling or "left"
+
         for element in paragraph_content:
             if element.get("type") == "text":
                 ETelement = ET.Element("custom")
@@ -89,30 +94,33 @@ class FB2Handler(Handler):
 
         return paragraph
 
+    def _tag_parser(self, tag: dict) -> ET.Element:
+        item_type = tag.get("type")
+        match item_type:
+            case "paragraph":
+                return self._parse_paragraph(tag.get("content"))
+            case "horizontalRule":
+                return ET.Element("empty-line")
+            case "bulletList", "orderedList":
+                list_items = tag.get("content")
+                return self._parse_list(list_items, "bulletList")
+            case "heading":
+                level = tag.get("attrs").get("level")
+                paragraph_content = tag.get("content")
+                if level == 2:
+                    tag = ET.Element("title")
+                elif level == 3:
+                    tag = ET.Element("subtitle")
+                tag.append(self._parse_paragraph(paragraph_content))
+                return tag
+
     def _parse_doc(self, chapter: ChapterData) -> list[ET.Element]:
         tags: list = []
 
         for item in chapter.content:
-            item_type = item.get("type")
-            match item_type:
-                case "paragraph":
-                    paragraph = self._parse_paragraph(item.get("content"))
-                    tags.append(paragraph)
-                case "horizontalRule":
-                    tags.append(ET.Element("empty-line"))
-                case "bulletList", "orderedList":
-                    list_items = item.get("content")
-                    bulletList = self._parse_list(list_items, "bulletList")
-                    tags.extend(bulletList)
-                case "heading":
-                    level = item.get("attrs").get("level")
-                    paragraph_content = item.get("content")
-                    if level == 2:
-                        tag = ET.Element("title")
-                    elif level == 3:
-                        tag = ET.Element("subtitle")
-                    tag.append(self._parse_paragraph(paragraph_content))
-                    tags.append(tag)
+            tmp = self._tag_parser(item)
+            tags.extend(tmp) if isinstance(tmp, list) else tags.append(tmp)
+
         return tags
 
     def save_book(self, dir: str) -> None:
