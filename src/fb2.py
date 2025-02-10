@@ -100,7 +100,7 @@ class FB2Handler(Handler):
                     tags.append(paragraph)
                 case "horizontalRule":
                     tags.append(ET.Element("empty-line"))
-                case "bulletList":
+                case "bulletList", "orderedList":
                     list_items = item.get("content")
                     bulletList = self._parse_list(list_items, "bulletList")
                     tags.extend(bulletList)

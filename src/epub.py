@@ -1,4 +1,5 @@
 import time
+from xml.etree import ElementTree as ET
 
 from bs4 import BeautifulSoup
 from ebooklib import epub
