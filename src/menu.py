@@ -1,4 +1,5 @@
 import os
+import webbrowser
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -66,6 +67,11 @@ class Ranobe2ebook(App):
 
     BINDINGS = [
         Binding(key="ctrl+q", action="quit", key_display="ctrl + q", description="Выйти"),
+        Binding(
+            key="i",
+            action="open_issue_link()",
+            description="Нашли ошибку?",
+        ),
     ]
 
     def dev_print(self, text: str) -> None:
@@ -163,6 +169,9 @@ class Ranobe2ebook(App):
                             id="chapter_list",
                             auto_scroll=False,
                         )
+
+    def action_open_issue_link(self) -> None:
+        webbrowser.open("https://github.com/DustGalaxy/RanobeLib2ebook/issues")
 
     @on(Input.Changed, "#input_link")
     def show_invalid_reasons(self, event: Input.Changed) -> None:

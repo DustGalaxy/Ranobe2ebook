@@ -51,94 +51,126 @@ class EpubHandler(Handler):
             case _:
                 return ""
 
-    def _parse_marks(self, marks: list[str], text: str) -> str:
-        pre_tag: list[str] = []
-        post_tag: list[str] = []
-        for mark in marks:
-            tag = self._get_tag_name(mark.get("type"))
-            pre_tag.append(f"<{tag}>")
-            post_tag.append(f"</{tag}>")
+    # def _parse_marks(self, marks: list[str], text: str) -> str:
+    #     pre_tag: list[str] = []
+    #     post_tag: list[str] = []
+    #     for mark in marks:
+    #         tag = self._get_tag_name(mark.get("type"))
+    #         pre_tag.append(f"<{tag}>")
+    #         post_tag.append(f"</{tag}>")
 
-        return text if len(pre_tag) == 0 else "".join(pre_tag) + text + "".join(post_tag[::-1])
+    #     return text if len(pre_tag) == 0 else "".join(pre_tag) + text + "".join(post_tag[::-1])
 
-    def _parse_text(self, text_tag: str) -> str:
-        text = ""
-        for element in text_tag:
-            if element.get("type") == "text":
-                if "marks" in element:
-                    text += self._parse_marks(element.get("marks"), element.get("text"))
-                else:
-                    text += element.get("text")
-        return text
+    # def _parse_text(self, text_tag: str) -> str:
+    #     text = ""
+    #     for element in text_tag:
+    #         if element.get("type") == "text":
+    #             if "marks" in element:
+    #                 text += self._parse_marks(element.get("marks"), element.get("text"))
+    #             else:
+    #                 text += "<span>" + element.get("text") + "</span>"
+    #     self.log_func(text)
+    #     return ET.fromstring(text)
 
-    def _parse_paragraph(self, paragraph: dict) -> str:
-        text = ""
-        tag_1 = "<p>"
-        tag_2 = "</p>"
+    # def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
+    #     paragraphE = ET.Element(element)
+
+    #     if not paragraph.get("content"):
+    #         return paragraphE
+
+    #     attrs = paragraph.get("attrs")
+    #     if attrs:
+    #         aling = attrs.get("textAlign")
+    #         paragraphE.attrib["style"] = f"text-align: {aling};"
+    #     text = self._parse_text(paragraph.get("content"))
+    #     paragraphE.append(text)
+
+    #     return paragraphE
+
+    def _parse_marks(self, marks: list, tag: ET.Element, text: str, index: int = 0) -> ET.Element:
+        if index >= len(marks):
+            tag.text = text
+            return tag
+
+        tag_type = self._get_tag_name(marks[index].get("type"))
+        new_tag = ET.Element(tag_type)
+        tag.append(self._parse_marks(marks, new_tag, text, index + 1))
+        return tag
+
+    def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
+        paragraphE = ET.Element(element)
 
         if not paragraph.get("content"):
-            return text
+            return paragraphE
 
-        aling = paragraph.get("attrs").get("textAlign")
-        tag_1 = f'<p style="text-align: {aling or "left"};">'
+        attrs = paragraph.get("attrs")
+        if attrs:
+            aling = attrs.get("textAlign")
+            paragraphE.attrib["style"] = f"text-align: {aling or 'left'};"
 
-        text = self._parse_text(paragraph.get("content"))
-        return tag_1 + text + tag_2
+        for element in paragraph.get("content"):
+            if element.get("type") == "text":
+                ETelement = ET.Element("span")
 
-    def _parse_list(self, list_content: list[dict], type: str) -> list[str]:
-        list_tags: list[str] = []
-        tag = "ul" if type == "bullet" else "ol"
-        list_tags.append(f"<{tag}>")
+                if "marks" in element:
+                    self._parse_marks(element.get("marks"), ETelement, element.get("text"))
+                else:
+                    ETelement.text = element.get("text")
 
+                paragraphE.append(ETelement)
+
+        return paragraphE
+
+    def _parse_list(self, list_content: list[dict], type: str) -> ET.Element:
+        listE = ET.Element("ul" if type == "bullet" else "ol")
         for list_item in list_content:
-            li = []
+            li = ET.SubElement(listE, "li")
 
             for li_content in list_item.get("content"):
                 tags = self._tag_parser(li_content)
-                list_tags.extend(tags) if isinstance(tags, list) else li.append(tags)
+                li.append(tags)
 
-            list_tags.append("<li>" + "".join(li) + "</li>")
+        return listE
 
-        list_tags.append(f"</{tag}>")
-
-        return list_tags
-
-    def _tag_parser(self, tag: str) -> str:
+    def _tag_parser(self, tag: dict) -> ET.Element:
         tag_type = tag.get("type")
         match tag_type:
             case "image":
                 img_name = tag.get("attrs").get("images")[-1].get("image")
-                return f"<img src='static/{self.images.get(img_name).uid}'/>"
+                return ET.Element("img", attrib={"src": f"static/{self.images.get(img_name).uid}"})
 
             case "paragraph":
                 return self._parse_paragraph(tag)
 
             case "horizontalRule":
-                return "<hr/>"
+                return ET.Element("hr", attrib={"style": "width: 100%;"})
 
             case "bulletList":
                 list_items = tag.get("content")
-                return (self._parse_list(list_items), "bullet")
+                return self._parse_list(list_items, "bullet")
 
             case "orderedList":
                 list_items = tag.get("content")
-                return (self._parse_list(list_items), "ordered")
+                return self._parse_list(list_items, "ordered")
 
             case "heading":
                 level = tag.get("attrs").get("level")
-                aling = tag.get("attrs").get("textAlign")
-                return f"<h{level} style='text-align: {aling or 'left'};'>{self._parse_text(tag.get('content'))}</h{level}>"
+                return self._parse_paragraph(tag, "h" + str(level))
 
             case "blockquote":
-                blockquote_content = tag.get("content")
-                blockquote_tags = self._tag_parser(blockquote_content)
-                return f"<blockquote>{blockquote_tags}</blockquote>"
+                blockquoteE = ET.Element(
+                    "blockquote",
+                    attrib={"style": "background-color: rgba(0, 0, 0, 0.2); padding: 10px 20px; border-radius: 15px;"},
+                )
+                for b_tag in tag.get("content"):
+                    blockquoteE.append(self._tag_parser(b_tag))
+                return blockquoteE
 
-    def _parse_doc(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
+    def _parse_doc(self, chapter: ChapterData) -> tuple[list[ET.Element], dict[str, Image]]:
         attachments = chapter.attachments
         img_base_url = "https://ranobelib.me"
         images: dict[str, Image] = {}
-        tags: list[str] = []
+        tags: list[ET.Element] = []
 
         for attachment in attachments:
             img_uid = f"{chapter.id}_{attachment.filename}"
@@ -185,7 +217,8 @@ class EpubHandler(Handler):
         elif chapter.type == "doc":
             tags, images = self._parse_doc(chapter)
             epub_chapter.set_content(
-                f"<h1>{chapter_title}</h1>" + "".join([tag for tag in tags]),
+                f"<h1>{chapter_title}</h1>"
+                + "".join([ET.tostring(tag, encoding="unicode", method="html") for tag in tags]),
             )
         else:
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в EPUB!")
@@ -206,7 +239,8 @@ class EpubHandler(Handler):
 
         self.book.add_item(epub.EpubNcx())
         self.book.add_item(epub.EpubNav())
-        self.book.spine = ["nav"] + [chap for chap in self.book.items if isinstance(chap, epub.EpubHtml)]
+        self.book.spine = [chap for chap in self.book.items if isinstance(chap, epub.EpubHtml)]
+        self.book.spine = [self.book.spine[-1]] + self.book.spine[:-1]
 
         self.book.add_metadata(
             None,
@@ -284,7 +318,7 @@ class EpubHandler(Handler):
             " ".join([genre.get("name") for genre in ranobe_data.get("genres")]),
         )
         book.add_metadata("DC", "description", ranobe_data.get("summary").replace("\n", "<p>"))
-        book.add_metadata("DC", "contributor", "RanobeLIB 2 ebook")
+        book.add_metadata("DC", "contributor", "RanobeLib2ebook")
         book.add_metadata("DC", "source", "ranobelib.me")
         book.add_metadata(
             None,
