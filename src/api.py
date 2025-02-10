@@ -12,8 +12,8 @@ from src.utils import is_html, is_url
 BASE_API_URL = "https://api2.mangalib.me/api"
 
 
-def get_branchs(id: str) -> dict:
-    url = f"{BASE_API_URL}/branches/{id}?team_defaults=1"
+def get_branchs(ranobe_id: str) -> dict:
+    url = f"{BASE_API_URL}/branches/{ranobe_id}?team_defaults=1"
 
     response = requests.get(url)
 
@@ -110,8 +110,8 @@ def get_image_content(url: str, format: str) -> bytes:
         raise Exception(e)
 
 
-def get_chapter(name: str, priority_branch: str, number: int, volume: int) -> ChapterData:
-    url = f"{BASE_API_URL}/manga/{name}/chapter?branch_id={priority_branch}&number={number}&volume={volume}"
+def get_chapter(ranobe_name: str, priority_branch: str, number: int, volume: int) -> ChapterData:
+    url = f"{BASE_API_URL}/manga/{ranobe_name}/chapter?branch_id={priority_branch}&number={number}&volume={volume}"
     response = requests.get(
         url,
         headers={

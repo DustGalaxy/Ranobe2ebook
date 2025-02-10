@@ -10,6 +10,7 @@ from src.api import get_chapter, get_image_content
 
 class EpubHandler(Handler):
     book: epub.EpubBook
+    images: dict[str, Image]
 
     def _parse_html(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
         try:
@@ -59,12 +60,9 @@ class EpubHandler(Handler):
 
         return text if len(pre_tag) == 0 else "".join(pre_tag) + text + "".join(post_tag[::-1])
 
-    def _parse_paragraph(self, paragraph_content: list[dict]) -> str:
+    def _parse_text(self, text_tag: str) -> str:
         text = ""
-        if not paragraph_content:
-            return text
-
-        for element in paragraph_content:
+        for element in text_tag:
             if element.get("type") == "text":
                 if "marks" in element:
                     text += self._parse_marks(element.get("marks"), element.get("text"))
@@ -72,25 +70,68 @@ class EpubHandler(Handler):
                     text += element.get("text")
         return text
 
+    def _parse_paragraph(self, paragraph: dict) -> str:
+        text = ""
+        tag_1 = "<p>"
+        tag_2 = "</p>"
+
+        if not paragraph.get("content"):
+            return text
+
+        aling = paragraph.get("attrs").get("textAlign")
+        tag_1 = f'<p style="text-align: {aling or "left"};">'
+
+        text = self._parse_text(paragraph.get("content"))
+        return tag_1 + text + tag_2
+
     def _parse_list(self, list_content: list[dict], type: str) -> list[str]:
         list_tags: list[str] = []
         tag = "ul" if type == "bullet" else "ol"
         list_tags.append(f"<{tag}>")
+
         for list_item in list_content:
-            for list_item_content in list_item.get("content"):
-                match list_item_content.get("type"):
-                    case "paragraph":
-                        paragraph_content = list_item_content.get("content")
-                        list_tags.append(f"<li>{self._parse_paragraph(paragraph_content)}</li>")
-                    case "bulletList":
-                        list_items = list_item_content.get("content")
-                        list_tags.extend(self._parse_list(list_items), "bullet")
-                    case "orderedList":
-                        list_items = list_item_content.get("content")
-                        list_tags.extend(self._parse_list(list_items), "ordered")
+            li = []
+
+            for li_content in list_item.get("content"):
+                tags = self._tag_parser(li_content)
+                list_tags.extend(tags) if isinstance(tags, list) else li.append(tags)
+
+            list_tags.append("<li>" + "".join(li) + "</li>")
+
         list_tags.append(f"</{tag}>")
 
         return list_tags
+
+    def _tag_parser(self, tag: str) -> str:
+        tag_type = tag.get("type")
+        match tag_type:
+            case "image":
+                img_name = tag.get("attrs").get("images")[-1].get("image")
+                return f"<img src='static/{self.images.get(img_name).uid}'/>"
+
+            case "paragraph":
+                return self._parse_paragraph(tag)
+
+            case "horizontalRule":
+                return "<hr/>"
+
+            case "bulletList":
+                list_items = tag.get("content")
+                return (self._parse_list(list_items), "bullet")
+
+            case "orderedList":
+                list_items = tag.get("content")
+                return (self._parse_list(list_items), "ordered")
+
+            case "heading":
+                level = tag.get("attrs").get("level")
+                aling = tag.get("attrs").get("textAlign")
+                return f"<h{level} style='text-align: {aling or 'left'};'>{self._parse_text(tag.get('content'))}</h{level}>"
+
+            case "blockquote":
+                blockquote_content = tag.get("content")
+                blockquote_tags = self._tag_parser(blockquote_content)
+                return f"<blockquote>{blockquote_tags}</blockquote>"
 
     def _parse_doc(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
         attachments = chapter.attachments
@@ -106,28 +147,11 @@ class EpubHandler(Handler):
                 url=img_base_url + attachment.url,
                 extension=attachment.extension,
             )
+            self.images = images
 
         for item in chapter.content:
-            item_type = item.get("type")
-            match item_type:
-                case "image":
-                    img_name = item.get("attrs").get("images")[-1].get("image")
-                    tags.append(f"<img src='static/{images.get(img_name).uid}'/>")
-                case "paragraph":
-                    paragraph_content = item.get("content")
-                    tags.append(f"<p>{self._parse_paragraph(paragraph_content)}</p>")
-                case "horizontalRule":
-                    tags.append("<hr/>")
-                case "bulletList":
-                    list_items = item.get("content")
-                    tags.extend(self._parse_list(list_items), "bullet")
-                case "orderedList":
-                    list_items = item.get("content")
-                    tags.extend(self._parse_list(list_items), "ordered")
-                case "heading":
-                    level = item.get("attrs").get("level")
-                    paragraph_content = item.get("content")
-                    tags.append(f"<h{level}>{self._parse_paragraph(paragraph_content)}</h{level}>")
+            tmp = self._tag_parser(item)
+            tags.extend(tmp) if isinstance(tmp, list) else tags.append(tmp)
 
         return tags, images
 
