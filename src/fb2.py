@@ -1,8 +1,9 @@
 import base64
+import os
+import re
 import time
 from xml.etree import ElementTree as ET
 
-import requests
 from bs4 import BeautifulSoup
 
 from src.model import ChapterData, ChapterMeta, Handler, Image, MyFictionBook2
@@ -14,15 +15,37 @@ class FB2Handler(Handler):
     book: MyFictionBook2
 
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
-        try:
-            soup = BeautifulSoup(chapter.content, "html.parser")
-            tags: list = []
-            for tag in soup.find_all(recursive=False):
-                tags.append(ET.fromstring(tag.__str__()))
-        except Exception as e:
-            self.log_func(e)
+        soup = BeautifulSoup(chapter.content, "html.parser")
+        tags: list[ET.Element] = []
+        for tag in soup.find_all(recursive=False):
+            if tag.name == "img":
+                url = tag["src"]
+                img_filename = url.split("/")[-1]
+                img_uid = f"{chapter.id}_{img_filename}"
+                image = Image(
+                    uid=img_uid,
+                    name=img_filename.split(".")[0],
+                    url=url,
+                    extension=img_filename.split(".")[-1],
+                )
+                imageE = self._insert_image(image)
+                tags.append(imageE)
+                continue
+            tags.append(ET.fromstring(str(tag)))
 
         return tags
+
+    def _insert_image(self, image: Image) -> ET.Element:
+        binaryE = ET.Element(
+            "binary",
+            attrib={
+                "id": image.uid,
+                "content-type": image.media_type,
+            },
+        )
+        binaryE.text = base64.b64encode(get_image_content(image.url, image.extension)).decode("utf-8")
+        self.book.root.append(binaryE)
+        return ET.Element("image", attrib={"xlink:href": f"#{image.uid}"})
 
     def _get_tag_name(self, mark_type: str) -> ET.Element:
         match mark_type:
@@ -47,7 +70,7 @@ class FB2Handler(Handler):
         return tag
 
     def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
-        paragraphE: ET.Element = ET.Element(element)
+        paragraphE = ET.Element(element)
 
         attrs = paragraph.get("attrs")
         if attrs:
@@ -70,13 +93,13 @@ class FB2Handler(Handler):
 
         return paragraphE
 
-    def _parse_list(self, list_obj: dict, list_type: str, level=1) -> ET.Element:
+    def _parse_list(self, list_obj: dict, type: str, level=1) -> ET.Element:
         listE: ET.Element = ET.Element("custom")
         for i, list_item in enumerate(list_obj, start=1):
             if "content" not in list_item:
                 continue
 
-            prefix = " " * (level * 2) + f"{i}. " if list_type == "orderedList" else "• "
+            prefix = " " * (level * 2) + f"{i}. " if type == "orderedList" else "• "
 
             for element in list_item.get("content"):
                 tag = self._tag_parser(element, level=level + 1)
@@ -92,29 +115,23 @@ class FB2Handler(Handler):
         item_type = tag.get("type")
         match item_type:
             case "image":
+                images: dict[str, Image] = kwargs.get("images")
+                if not images:
+                    return ET.Element("span")
                 img_name = tag.get("attrs").get("images")[-1].get("image")
-                img_obj: Image = self.images.get(img_name)
-                binaryE = ET.Element(
-                    "binary",
-                    attrib={
-                        "id": img_obj.uid,
-                        "content-type": img_obj.media_type,
-                    },
-                )
-                binaryE.text = base64.b64encode(get_image_content(img_obj.url, img_obj.extension)).decode("utf-8")
-                self.book.root.append(binaryE)
-
-                return ET.Element("image", attrib={"xlink:href": f"#{img_obj.uid}"})
+                return self._insert_image(images.get(img_name))
 
             case "paragraph":
                 return self._parse_paragraph(tag)
 
             case "horizontalRule":
-                return ET.Element("empty-line")
+                hr = ET.Element("paragraph", attrib={"align": "center"})
+                hr.text = "***"
+                return hr
 
             case "bulletList" | "orderedList":
                 list_items = tag.get("content")
-                return self._parse_list(list_items, item_type, **kwargs)
+                return self._parse_list(list_items, item_type, kwargs.get("level", 1))
 
             case "heading":
                 level = tag.get("attrs").get("level")
@@ -123,7 +140,7 @@ class FB2Handler(Handler):
             case "blockquote":
                 blockquoteE = ET.Element("epigraph")
                 for b_tag in tag.get("content"):
-                    blockquoteE.append(self._tag_parser(b_tag))
+                    blockquoteE.append(self._tag_parser(b_tag, kwargs=kwargs))
                 return blockquoteE
 
     def _parse_doc(self, chapter: ChapterData) -> list[ET.Element]:
@@ -140,27 +157,12 @@ class FB2Handler(Handler):
                 url=img_base_url + attachment.url,
                 extension=attachment.extension,
             )
-            self.images = images
 
         for item in chapter.content:
-            tag = self._tag_parser(item)
+            tag = self._tag_parser(item, images=images)
             tags.append(tag)
 
-        return tags, images
-
-    def save_book(self, dir: str) -> None:
-        save_title = self.book.titleInfo.title.replace(":", "")
-        self.book.write(dir + f"\\{1}.fb2")
-        self.log_func(f"Книга {self.book.titleInfo.title} сохранена в формате FB2!")
-        self.log_func(f"В каталоге {dir} создана книга {save_title}.fb2")
-
-    def end_book(self) -> None:
-        self.book.titleInfo.sequences = [
-            (
-                self.book.titleInfo.title,
-                f"Тома c {self.min_volume} по {self.max_volume}",
-            )
-        ]
+        return tags
 
     def _make_chapter(
         self, slug: str, priority_branch: str, item: ChapterMeta
@@ -179,12 +181,12 @@ class FB2Handler(Handler):
         if chapter.type == "html":
             tags = self._parse_html(chapter)
         elif chapter.type == "doc":
-            tags, images = self._parse_doc(chapter)
+            tags = self._parse_doc(chapter)
 
         else:
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в FB2!")
 
-        return tags, images
+        return tags
 
     def fill_book(
         self,
@@ -208,7 +210,7 @@ class FB2Handler(Handler):
             if worker.is_cancelled:
                 break
 
-            tags, images = self._make_chapter(slug, priority_branch, item)
+            tags = self._make_chapter(slug, priority_branch, item)
 
             if tags is None:
                 self.log_func("Пропускаем главу.")
@@ -228,6 +230,21 @@ class FB2Handler(Handler):
 
             self.progress_bar_step(1)
 
+    def save_book(self, dir: str) -> None:
+        safe_title = re.sub(r'[<>:"/\\|?*]', "", self.book.titleInfo.title)
+        file_path = os.path.join(dir, f"{safe_title}.fb2")
+        self.book.write(file_path)
+        self.log_func(f"Книга {self.book.titleInfo.title} сохранена в формате FB2!")
+        self.log_func(f"В каталоге {dir} создана книга {safe_title}.fb2")
+
+    def end_book(self) -> None:
+        self.book.titleInfo.sequences = [
+            (
+                self.book.titleInfo.title,
+                f"Тома c {self.min_volume} по {self.max_volume}",
+            )
+        ]
+
     def make_book(self, ranobe_data: dict) -> None:
         self.log_func("Подготавливаем книгу...")
 
@@ -238,9 +255,10 @@ class FB2Handler(Handler):
         book.titleInfo.authors = set_authors(ranobe_data.get("authors"))
         book.titleInfo.genres = [genre.get("name") for genre in ranobe_data.get("genres")]
         book.titleInfo.lang = "ru"
-        book.documentInfo.programUsed = "RanobeLIB 2 ebook"
+        book.documentInfo.programUsed = "RanobeLib2ebook"
         book.customInfos = ["meta", "rating"]
-        book.titleInfo.coverPageImages = [requests.get(ranobe_data.get("cover").get("default")).content]
+        cover_url = ranobe_data.get("cover").get("default")
+        book.titleInfo.coverPageImages = [get_image_content(cover_url, cover_url.split(".")[-1])]
 
         self.log_func("Подготовили книгу.")
         self.book = book

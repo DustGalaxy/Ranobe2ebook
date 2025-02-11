@@ -111,19 +111,39 @@ class Handler(ABC):
         self.progress_bar_step = progress_bar_step
 
     @abstractmethod
-    def _get_tag_name(self, mark_type: str) -> str:
+    def _insert_image(self, image: Image) -> ET.Element:
         pass
 
     @abstractmethod
-    def _parse_list(self, *args, **kwargs) -> Any:
+    def _get_tag_name(self, mark_type: str) -> ET.Element:
         pass
 
     @abstractmethod
-    def _parse_marks(self, *args, **kwargs) -> Any:
+    def _parse_list(self, *args, **kwargs) -> ET.Element:
         pass
 
     @abstractmethod
-    def _parse_paragraph(self, paragraph_content: list[dict]) -> Any:
+    def _parse_marks(self, marks: list, tag: ET.Element, text: str, index: int = 0) -> ET.Element:
+        pass
+
+    @abstractmethod
+    def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
+        pass
+
+    @abstractmethod
+    def _tag_parser(self, tag: dict, **kwargs) -> ET.Element:
+        pass
+
+    @abstractmethod
+    def _parse_doc(self, chapter: ChapterData) -> list[ET.Element]:
+        pass
+
+    @abstractmethod
+    def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
+        pass
+
+    @abstractmethod
+    def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> list[ET.Element]:
         pass
 
     @abstractmethod
@@ -134,10 +154,6 @@ class Handler(ABC):
 
     @abstractmethod
     def make_book(self, ranobe_data: dict) -> None:
-        pass
-
-    @abstractmethod
-    def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> Any:
         pass
 
     @abstractmethod
