@@ -38,18 +38,18 @@ class EpubHandler(Handler):
 
         return tags, images
 
-    def _get_tag_name(self, mark_type: str) -> str:
+    def _get_tag_name(self, mark_type: str) -> ET.Element:
         match mark_type:
             case "bold":
-                return "b"
+                return ET.Element("b")
             case "italic":
-                return "i"
+                return ET.Element("i")
             case "underline":
-                return "ins"
+                return ET.Element("ins")
             case "strike":
-                return "del"
+                return ET.Element("del")
             case _:
-                return ""
+                return ET.Element("span")
 
     # def _parse_marks(self, marks: list[str], text: str) -> str:
     #     pre_tag: list[str] = []
@@ -92,8 +92,7 @@ class EpubHandler(Handler):
             tag.text = text
             return tag
 
-        tag_type = self._get_tag_name(marks[index].get("type"))
-        new_tag = ET.Element(tag_type)
+        new_tag = self._get_tag_name(marks[index].get("type"))
         tag.append(self._parse_marks(marks, new_tag, text, index + 1))
         return tag
 
@@ -122,13 +121,13 @@ class EpubHandler(Handler):
         return paragraphE
 
     def _parse_list(self, list_content: list[dict], type: str) -> ET.Element:
-        listE = ET.Element("ul" if type == "bullet" else "ol")
+        listE = ET.Element("ul" if type == "bulletList" else "ol")
         for list_item in list_content:
             li = ET.SubElement(listE, "li")
 
             for li_content in list_item.get("content"):
-                tags = self._tag_parser(li_content)
-                li.append(tags)
+                tag = self._tag_parser(li_content)
+                li.append(tag)
 
         return listE
 
@@ -145,13 +144,11 @@ class EpubHandler(Handler):
             case "horizontalRule":
                 return ET.Element("hr", attrib={"style": "width: 100%;"})
 
-            case "bulletList":
+            case "bulletList" | "orderedList":
                 list_items = tag.get("content")
-                return self._parse_list(list_items, "bullet")
-
-            case "orderedList":
-                list_items = tag.get("content")
-                return self._parse_list(list_items, "ordered")
+                listE = self._parse_list(list_items, tag_type)
+                self.log_func(str(listE))
+                return listE
 
             case "heading":
                 level = tag.get("attrs").get("level")
@@ -184,7 +181,7 @@ class EpubHandler(Handler):
 
         for item in chapter.content:
             tmp = self._tag_parser(item)
-            tags.extend(tmp) if isinstance(tmp, list) else tags.append(tmp)
+            tags.append(tmp)
 
         return tags, images
 
@@ -216,6 +213,8 @@ class EpubHandler(Handler):
 
         elif chapter.type == "doc":
             tags, images = self._parse_doc(chapter)
+            for tag in tags:
+                self.log_func(str(tag))
             epub_chapter.set_content(
                 f"<h1>{chapter_title}</h1>"
                 + "".join([ET.tostring(tag, encoding="unicode", method="html") for tag in tags]),

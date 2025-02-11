@@ -1,6 +1,43 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from logging import root
 from typing import Any, Callable, Literal
+from xml.etree import ElementTree as ET
+
+from FB2 import FictionBook2
+from FB2.FB2Builder import FB2Builder
+
+
+class MyFB2Builder(FB2Builder):
+    def GetFB2(self, root: ET.Element = None) -> ET.Element:
+        if root is None:
+            root = ET.Element(
+                "FictionBook",
+                attrib={
+                    "xmlns": "http://www.gribuser.ru/xml/fictionbook/2.0",
+                    "xmlns:xlink": "http://www.w3.org/1999/xlink",
+                },
+            )
+        self._AddStylesheets(root)
+        self._AddCustomInfos(root)
+        self._AddDescription(root)
+        self._AddBody(root)
+        self._AddBinaries(root)
+        return root
+
+
+@dataclass
+class MyFictionBook2(FictionBook2):
+    root: ET.Element = ET.Element(
+        "FictionBook",
+        attrib={
+            "xmlns": "http://www.gribuser.ru/xml/fictionbook/2.0",
+            "xmlns:xlink": "http://www.w3.org/1999/xlink",
+        },
+    )
+
+    def __str__(self) -> str:
+        return FB2Builder._PrettifyXml(MyFB2Builder(self).GetFB2(root=self.root))
 
 
 @dataclass
