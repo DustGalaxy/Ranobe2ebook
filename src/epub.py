@@ -1,8 +1,10 @@
+import os
+import re
 import time
+from xml.etree import ElementTree as ET
 
 from bs4 import BeautifulSoup
 from ebooklib import epub
-import requests
 
 from src.model import ChapterData, ChapterMeta, Image, Handler
 from src.api import get_chapter, get_image_content
@@ -10,134 +12,135 @@ from src.api import get_chapter, get_image_content
 
 class EpubHandler(Handler):
     book: epub.EpubBook
-    images: dict[str, Image]
 
-    def _parse_html(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
-        try:
-            soup = BeautifulSoup(chapter.content, "html.parser")
-            tags: list = []
-            images: dict[str, Image] = {}
-            for tag in soup.find_all(recursive=False):
-                if tag.name == "img":
-                    url = tag["src"]
-                    img_filename = url.split("/")[-1]
-                    img_uid = f"{chapter.id}_{img_filename}"
-                    image = Image(
-                        uid=img_uid,
-                        name=img_filename.split(".")[0],
-                        url=url,
-                        extension=img_filename.split(".")[-1],
-                    )
-                    images[image.name] = image
-                    tag["src"] = image.static_url
+    def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
+        soup = BeautifulSoup(chapter.content, "html.parser")
+        tags: list[ET.Element] = []
+        for tag in soup.find_all(recursive=False):
+            if tag.name == "img":
+                url = tag["src"]
+                img_filename = url.split("/")[-1]
+                img_uid = f"{chapter.id}_{img_filename}"
+                image = Image(
+                    uid=img_uid,
+                    name=img_filename.split(".")[0],
+                    url=url,
+                    extension=img_filename.split(".")[-1],
+                )
+                imageE = self._insert_image(image)
+                tags.append(imageE)
+                continue
+            tags.append(ET.fromstring(str(tag)))
 
-                tags.append(tag)
-        except Exception as e:
-            self.log_func(e)
+        return tags
 
-        return tags, images
+    def _insert_image(self, image: Image) -> ET.Element:
+        self.book.add_item(
+            epub.EpubImage(
+                uid=image.name,
+                file_name=image.static_url,
+                media_type=image.media_type,
+                content=get_image_content(image.url, image.extension),
+            )
+        )
+        return ET.Element("img", attrib={"src": image.static_url})
 
-    def _get_tag_name(self, mark_type: str) -> str:
+    def _get_tag_name(self, mark_type: str) -> ET.Element:
         match mark_type:
             case "bold":
-                return "b"
+                return ET.Element("b")
             case "italic":
-                return "i"
+                return ET.Element("i")
             case "underline":
-                return "ins"
+                return ET.Element("ins")
             case "strike":
-                return "del"
+                return ET.Element("del")
             case _:
-                return ""
+                return ET.Element("span")
 
-    def _parse_marks(self, marks: list[str], text: str) -> str:
-        pre_tag: list[str] = []
-        post_tag: list[str] = []
-        for mark in marks:
-            tag = self._get_tag_name(mark.get("type"))
-            pre_tag.append(f"<{tag}>")
-            post_tag.append(f"</{tag}>")
+    def _parse_marks(self, marks: list, tag: ET.Element, text: str, index: int = 0) -> ET.Element:
+        if index >= len(marks):
+            tag.text = text
+            return tag
 
-        return text if len(pre_tag) == 0 else "".join(pre_tag) + text + "".join(post_tag[::-1])
+        new_tag = self._get_tag_name(marks[index].get("type"))
+        tag.append(self._parse_marks(marks, new_tag, text, index + 1))
+        return tag
 
-    def _parse_text(self, text_tag: str) -> str:
-        text = ""
-        for element in text_tag:
+    def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
+        paragraphE = ET.Element(element)
+
+        attrs = paragraph.get("attrs")
+        if attrs:
+            aling = attrs.get("textAlign")
+            paragraphE.attrib["style"] = f"text-align: {aling or 'left'};"
+
+        if "content" not in paragraph:
+            return paragraphE
+
+        for element in paragraph.get("content"):
             if element.get("type") == "text":
+                ETelement = ET.Element("span")
+
                 if "marks" in element:
-                    text += self._parse_marks(element.get("marks"), element.get("text"))
+                    self._parse_marks(element.get("marks"), ETelement, element.get("text"))
                 else:
-                    text += element.get("text")
-        return text
+                    ETelement.text = element.get("text")
 
-    def _parse_paragraph(self, paragraph: dict) -> str:
-        text = ""
-        tag_1 = "<p>"
-        tag_2 = "</p>"
+                paragraphE.append(ETelement)
 
-        if not paragraph.get("content"):
-            return text
+        return paragraphE
 
-        aling = paragraph.get("attrs").get("textAlign")
-        tag_1 = f'<p style="text-align: {aling or "left"};">'
-
-        text = self._parse_text(paragraph.get("content"))
-        return tag_1 + text + tag_2
-
-    def _parse_list(self, list_content: list[dict], type: str) -> list[str]:
-        list_tags: list[str] = []
-        tag = "ul" if type == "bullet" else "ol"
-        list_tags.append(f"<{tag}>")
-
+    def _parse_list(self, list_content: list[dict], type: str) -> ET.Element:
+        listE = ET.Element("ul" if type == "bulletList" else "ol")
         for list_item in list_content:
-            li = []
+            li = ET.SubElement(listE, "li")
 
             for li_content in list_item.get("content"):
-                tags = self._tag_parser(li_content)
-                list_tags.extend(tags) if isinstance(tags, list) else li.append(tags)
+                tag = self._tag_parser(li_content)
+                li.append(tag)
 
-            list_tags.append("<li>" + "".join(li) + "</li>")
+        return listE
 
-        list_tags.append(f"</{tag}>")
-
-        return list_tags
-
-    def _tag_parser(self, tag: str) -> str:
+    def _tag_parser(self, tag: dict, **kwargs) -> ET.Element:
         tag_type = tag.get("type")
         match tag_type:
             case "image":
+                images: dict[str, Image] = kwargs.get("images")
+                if not images:
+                    return ET.Element("span")
                 img_name = tag.get("attrs").get("images")[-1].get("image")
-                return f"<img src='static/{self.images.get(img_name).uid}'/>"
+                return self._insert_image(images.get(img_name))
 
             case "paragraph":
                 return self._parse_paragraph(tag)
 
             case "horizontalRule":
-                return "<hr/>"
+                return ET.Element("hr", attrib={"style": "width: 100%;"})
 
-            case "bulletList":
+            case "bulletList" | "orderedList":
                 list_items = tag.get("content")
-                return (self._parse_list(list_items), "bullet")
-
-            case "orderedList":
-                list_items = tag.get("content")
-                return (self._parse_list(list_items), "ordered")
+                listE = self._parse_list(list_items, tag_type)
+                return listE
 
             case "heading":
                 level = tag.get("attrs").get("level")
-                aling = tag.get("attrs").get("textAlign")
-                return f"<h{level} style='text-align: {aling or 'left'};'>{self._parse_text(tag.get('content'))}</h{level}>"
+                return self._parse_paragraph(tag, "h" + str(level))
 
             case "blockquote":
-                blockquote_content = tag.get("content")
-                blockquote_tags = self._tag_parser(blockquote_content)
-                return f"<blockquote>{blockquote_tags}</blockquote>"
+                blockquoteE = ET.Element(
+                    "blockquote",
+                    attrib={"style": "background-color: rgba(0, 0, 0, 0.2); padding: 10px 20px; border-radius: 15px;"},
+                )
+                for b_tag in tag.get("content"):
+                    blockquoteE.append(self._tag_parser(b_tag, kwargs=kwargs))
+                return blockquoteE
 
-    def _parse_doc(self, chapter: ChapterData) -> tuple[list[str], dict[str, Image]]:
+    def _parse_doc(self, chapter: ChapterData) -> list[ET.Element]:
         attachments = chapter.attachments
         img_base_url = "https://ranobelib.me"
         images: dict[str, Image] = {}
-        tags: list[str] = []
+        tags: list[ET.Element] = []
 
         for attachment in attachments:
             img_uid = f"{chapter.id}_{attachment.filename}"
@@ -147,17 +150,14 @@ class EpubHandler(Handler):
                 url=img_base_url + attachment.url,
                 extension=attachment.extension,
             )
-            self.images = images
 
         for item in chapter.content:
-            tmp = self._tag_parser(item)
-            tags.extend(tmp) if isinstance(tmp, list) else tags.append(tmp)
+            tmp = self._tag_parser(item, images=images)
+            tags.append(tmp)
 
-        return tags, images
+        return tags
 
-    def _make_chapter(
-        self, slug: str, priority_branch: str, item: ChapterMeta
-    ) -> tuple[epub.EpubHtml, dict[str, Image]]:
+    def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> epub.EpubHtml:
         try:
             chapter: ChapterData = get_chapter(
                 slug,
@@ -175,44 +175,22 @@ class EpubHandler(Handler):
             title=chapter_title,
             file_name=item.number + "_" + item.volume + ".xhtml",
         )
-        tags, images = [], {}
 
         if chapter.type == "html":
-            tags, images = self._parse_html(chapter)
-            epub_chapter.set_content(f"<h1>{chapter_title}</h1>" + "".join([tag.__str__() for tag in tags]))
+            tags: list[str] = self._parse_html(chapter)
+            epub_chapter.set_content(f"<h1>{chapter_title}</h1>" + "".join([str(tag) for tag in tags]))
 
         elif chapter.type == "doc":
-            tags, images = self._parse_doc(chapter)
+            tags: list[ET.Element] = self._parse_doc(chapter)
             epub_chapter.set_content(
-                f"<h1>{chapter_title}</h1>" + "".join([tag for tag in tags]),
+                f"<h1>{chapter_title}</h1>"
+                + "".join([ET.tostring(tag, encoding="unicode", method="html") for tag in tags]),
             )
         else:
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в EPUB!")
             return None, None
 
-        return epub_chapter, images
-
-    def save_book(self, dir: str) -> None:
-        safe_title = self.book.title.replace(":", "")
-        epub.write_epub(f"{dir}\\{safe_title}.epub", self.book)
-        self.log_func(f"Книга {self.book.title} сохранена в формате Epub.")
-        self.log_func(f"В каталоге {dir} создана книга {safe_title}.epub.")
-
-    def end_book(self) -> None:
-        self.book.toc = (epub.Section("1"),) + tuple(
-            chap for chap in self.book.items if isinstance(chap, epub.EpubHtml)
-        )
-
-        self.book.add_item(epub.EpubNcx())
-        self.book.add_item(epub.EpubNav())
-        self.book.spine = ["nav"] + [chap for chap in self.book.items if isinstance(chap, epub.EpubHtml)]
-
-        self.book.add_metadata(
-            None,
-            "meta",
-            "",
-            {"name": "series_index", "content": f"Тома c {self.min_volume} по {self.max_volume}"},
-        )
+        return epub_chapter
 
     def fill_book(
         self,
@@ -236,31 +214,42 @@ class EpubHandler(Handler):
             if worker.is_cancelled:
                 break
 
-            epub_chapter, images = self._make_chapter(name, priority_branch, item)
+            epub_chapter = self._make_chapter(name, priority_branch, item)
             if epub_chapter is None:
                 self.log_func("Пропускаем главу.")
                 continue
 
             self.book.add_item(epub_chapter)
-            for img in images.values():
-                try:
-                    self.book.add_item(
-                        epub.EpubImage(
-                            uid=img.name,
-                            file_name=img.static_url,
-                            media_type=img.media_type,
-                            content=get_image_content(img.url, img.extension),
-                        )
-                    )
-                except Exception as e:
-                    self.log_func(str(e))
-                    continue
 
             self.log_func(
                 f"Скачали {i:>{total_len}}: Том {item.volume:>{volume_len}}. Глава {item.number:>{chap_len}}. {item.name}"
             )
 
             self.progress_bar_step(1)
+
+    def save_book(self, dir: str) -> None:
+        safe_title = re.sub(r'[<>:"/\\|?*]', "", self.book.title)
+        file_path = os.path.join(dir, f"{safe_title}.epub")
+        epub.write_epub(file_path, self.book)
+        self.log_func(f"Книга {self.book.title} сохранена в формате Epub.")
+        self.log_func(f"В каталоге {dir} создана книга {safe_title}.epub.")
+
+    def end_book(self) -> None:
+        self.book.toc = (epub.Section("1"),) + tuple(
+            chap for chap in self.book.items if isinstance(chap, epub.EpubHtml)
+        )
+
+        self.book.add_item(epub.EpubNcx())
+        self.book.add_item(epub.EpubNav())
+        self.book.spine = [chap for chap in self.book.items if isinstance(chap, epub.EpubHtml)]
+        self.book.spine = [self.book.spine[-1]] + self.book.spine[:-1]
+
+        self.book.add_metadata(
+            None,
+            "meta",
+            "",
+            {"name": "series_index", "content": f"Тома c {self.min_volume} по {self.max_volume}"},
+        )
 
     def make_book(self, ranobe_data: dict) -> None:
         self.log_func("\nПодготавливаем книгу...")
@@ -275,7 +264,7 @@ class EpubHandler(Handler):
             book.add_author(author.get("name"))
 
         cover_url = ranobe_data.get("cover").get("default")
-        book.set_cover(cover_url.split("/")[-1], requests.get(cover_url).content, False)
+        book.set_cover(cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1]), False)
 
         book.add_metadata(
             "DC",
@@ -283,7 +272,7 @@ class EpubHandler(Handler):
             " ".join([genre.get("name") for genre in ranobe_data.get("genres")]),
         )
         book.add_metadata("DC", "description", ranobe_data.get("summary").replace("\n", "<p>"))
-        book.add_metadata("DC", "contributor", "RanobeLIB 2 ebook")
+        book.add_metadata("DC", "contributor", "RanobeLib2ebook")
         book.add_metadata("DC", "source", "ranobelib.me")
         book.add_metadata(
             None,
