@@ -35,15 +35,18 @@ class EpubHandler(Handler):
         return tags
 
     def _insert_image(self, image: Image) -> ET.Element:
-        self.book.add_item(
-            epub.EpubImage(
-                uid=image.name,
-                file_name=image.static_url,
-                media_type=image.media_type,
-                content=get_image_content(image.url, image.extension),
+        if self.with_images:
+            self.book.add_item(
+                epub.EpubImage(
+                    uid=image.name,
+                    file_name=image.static_url,
+                    media_type=image.media_type,
+                    content=get_image_content(image.url, image.extension),
+                )
             )
-        )
-        return ET.Element("img", attrib={"src": image.static_url})
+            return ET.Element("img", attrib={"src": image.static_url})
+        else:
+            return ET.Element("span")
 
     def _get_tag_name(self, mark_type: str) -> ET.Element:
         match mark_type:

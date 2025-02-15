@@ -89,6 +89,9 @@ Log {
     align: center top;
 }
 
+.swith_wo_border {
+    border: none;
+}
 
 .main-vertical-height {
     height: 34;

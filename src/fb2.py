@@ -36,16 +36,19 @@ class FB2Handler(Handler):
         return tags
 
     def _insert_image(self, image: Image) -> ET.Element:
-        binaryE = ET.Element(
-            "binary",
-            attrib={
-                "id": image.uid,
-                "content-type": image.media_type,
-            },
-        )
-        binaryE.text = base64.b64encode(get_image_content(image.url, image.extension)).decode("utf-8")
-        self.book.root.append(binaryE)
-        return ET.Element("image", attrib={"xlink:href": f"#{image.uid}"})
+        if self.with_images:
+            binaryE = ET.Element(
+                "binary",
+                attrib={
+                    "id": image.uid,
+                    "content-type": image.media_type,
+                },
+            )
+            binaryE.text = base64.b64encode(get_image_content(image.url, image.extension)).decode("utf-8")
+            self.book.root.append(binaryE)
+            return ET.Element("image", attrib={"xlink:href": f"#{image.uid}"})
+        else:
+            return ET.Element("custom")
 
     def _get_tag_name(self, mark_type: str) -> ET.Element:
         match mark_type:

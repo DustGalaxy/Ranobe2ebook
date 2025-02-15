@@ -25,6 +25,8 @@ from textual.widgets import (
     Select,
     ProgressBar,
     Log,
+    Switch,
+    Static,
 )
 
 from textual_fspicker import SelectDirectory
@@ -128,11 +130,17 @@ class Ranobe2ebook(App):
                             classes="w-full mb-1",
                         )
                         yield Label("", id="dev_label", classes="w-full mb-1")
+                        with RadioSet(classes="w-full mb-1"):
+                            with Horizontal():
+                                yield Label("Включать изображения   ")
+                                yield Switch(value=True, id="add_images", classes="swith_wo_border")
+
                         with RadioSet(id="format", name="format", classes="w-full mb-1"):
                             yield Label("Формат")
                             yield Rule(line_style="heavy")
-                            yield RadioButton("EPUB с картинками 📝 + 🖼", name="epub", value=True)
-                            yield RadioButton("FB2 без картинок 📝", name="fb2")
+                            yield RadioButton("EPUB", name="epub", value=True)
+                            yield RadioButton("FB2", name="fb2")
+
                         with RadioSet(id="save_dir", classes="w-full mb-1"):
                             yield Label("Сохранить в папку")
                             yield Rule(line_style="heavy")
@@ -353,11 +361,12 @@ class Ranobe2ebook(App):
         p_bar: ProgressBar = self.query_one("#download_progress")
 
         format = self.query_one("#format").pressed_button.name
+        add_images = self.query_one("#add_images").value
 
         Handler_: Handler = self.handlers[format]
 
         self.ebook = Handler_(log_func=log.write_line, progress_bar_step=p_bar.advance)
-
+        self.ebook.with_images = add_images
         try:
             self.ebook.make_book(self.ranobe_data)
 

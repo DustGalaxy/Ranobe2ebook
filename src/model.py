@@ -105,6 +105,7 @@ class Handler(ABC):
     progress_bar_step: Callable
     min_volume: str
     max_volume: str
+    with_images: bool
 
     def __init__(self, log_func: Callable, progress_bar_step: Callable) -> None:
         self.log_func = log_func
