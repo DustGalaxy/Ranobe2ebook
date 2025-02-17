@@ -1,14 +1,57 @@
-import base64
 import os
 import re
 import time
+import base64
+from dataclasses import dataclass
 from xml.etree import ElementTree as ET
 
+from FB2 import FictionBook2
+from FB2.FB2Builder import FB2Builder
 from bs4 import BeautifulSoup
 
-from src.model import ChapterData, ChapterMeta, Handler, Image, MyFictionBook2
+from src.model import ChapterData, ChapterMeta, Handler, Image
 from src.api import get_chapter, get_image_content
 from src.utils import set_authors
+
+
+class MyFB2Builder(FB2Builder):
+    def GetFB2(self, root: ET.Element = None) -> ET.Element:
+        if root is None:
+            root = ET.Element(
+                "FictionBook",
+                attrib={
+                    "xmlns": "http://www.gribuser.ru/xml/fictionbook/2.0",
+                    "xmlns:xlink": "http://www.w3.org/1999/xlink",
+                },
+            )
+        self._AddStylesheets(root)
+        self._AddCustomInfos(root)
+        self._AddDescription(root)
+        self._AddBody(root)
+        self._AddBinaries(root)
+        return root
+
+    def _AddBody(self, root: ET.Element) -> None:
+        if len(self.book.chapters):
+            bodyElement = ET.SubElement(root, "body")
+            # ET.SubElement(ET.SubElement(bodyElement, "title"),
+            #               "p").text = self.book.titleInfo.title
+            for chapter in self.book.chapters:
+                bodyElement.append(self.BuildSectionFromChapter(chapter))
+
+
+@dataclass
+class MyFictionBook2(FictionBook2):
+    root: ET.Element = ET.Element(
+        "FictionBook",
+        attrib={
+            "xmlns": "http://www.gribuser.ru/xml/fictionbook/2.0",
+            "xmlns:xlink": "http://www.w3.org/1999/xlink",
+        },
+    )
+
+    def __str__(self) -> str:
+        return MyFB2Builder._PrettifyXml(MyFB2Builder(self).GetFB2(root=self.root))
 
 
 class FB2Handler(Handler):
@@ -128,8 +171,15 @@ class FB2Handler(Handler):
                 return self._parse_paragraph(tag)
 
             case "horizontalRule":
-                hr = ET.Element("paragraph", attrib={"align": "center"})
-                hr.text = "***"
+                center = {"style": "text-align: center"}
+                hr = ET.Element("p")
+                p1 = ET.SubElement(hr, "p", attrib=center)
+                inner_text = ET.SubElement(hr, "p", attrib=center)
+                p2 = ET.SubElement(hr, "p", attrib=center)
+
+                p1.text = " "
+                inner_text.text = "***"
+                p2.text = " "
                 return hr
 
             case "bulletList" | "orderedList":
@@ -199,12 +249,12 @@ class FB2Handler(Handler):
         worker,
         delay: float = 0.5,
     ) -> None:
-        self.min_volume = str(chapters_data[0].volume)
-        self.max_volume = str(chapters_data[-1].volume)
+        self.max_chapter = str(chapters_data[-1].number)
+        self.min_chapter = str(chapters_data[0].number)
 
         len_total = len(str(len(chapters_data)))
         chap_len = len(str(max(chapters_data, key=lambda x: len(str(x.number))).number))
-        volume_len = len(self.max_volume)
+        volume_len = len(str(chapters_data[-1].volume))
 
         self.log_func(f"Начинаем скачивать главы: {len(chapters_data)}")
 
@@ -244,7 +294,7 @@ class FB2Handler(Handler):
         self.book.titleInfo.sequences = [
             (
                 self.book.titleInfo.title,
-                f"Тома c {self.min_volume} по {self.max_volume}",
+                f"Главы c {self.min_chapter} по {self.max_chapter}",
             )
         ]
 
@@ -258,7 +308,7 @@ class FB2Handler(Handler):
         book.titleInfo.authors = set_authors(ranobe_data.get("authors"))
         book.titleInfo.genres = [genre.get("name") for genre in ranobe_data.get("genres")]
         book.titleInfo.lang = "ru"
-        book.documentInfo.programUsed = "RanobeLib2ebook"
+        book.documentInfo.programUsed = "Ranobe2ebook"
         book.customInfos = ["meta", "rating"]
         cover_url = ranobe_data.get("cover").get("default")
         book.titleInfo.coverPageImages = [get_image_content(cover_url, cover_url.split(".")[-1])]

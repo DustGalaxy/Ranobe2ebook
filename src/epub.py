@@ -203,12 +203,12 @@ class EpubHandler(Handler):
         worker,
         delay: float = 0.5,
     ) -> None:
-        self.min_volume = str(chapters_data[0].volume)
-        self.max_volume = str(chapters_data[-1].volume)
+        self.max_chapter = str(chapters_data[-1].number)
+        self.min_chapter = str(chapters_data[0].number)
 
         total_len = len(str(len(chapters_data)))
         chap_len = len(str(max(chapters_data, key=lambda x: len(str(x.number))).number))
-        volume_len = len(self.max_volume)
+        volume_len = len(str(chapters_data[-1].volume))
 
         self.log_func(f"\nНачинаем скачивать главы: {len(chapters_data)}")
 
@@ -251,7 +251,7 @@ class EpubHandler(Handler):
             None,
             "meta",
             "",
-            {"name": "series_index", "content": f"Тома c {self.min_volume} по {self.max_volume}"},
+            {"name": "series_index", "content": f"Главы c {self.min_chapter} по {self.max_chapter}"},
         )
 
     def make_book(self, ranobe_data: dict) -> None:
@@ -275,7 +275,7 @@ class EpubHandler(Handler):
             " ".join([genre.get("name") for genre in ranobe_data.get("genres")]),
         )
         book.add_metadata("DC", "description", ranobe_data.get("summary").replace("\n", "<p>"))
-        book.add_metadata("DC", "contributor", "RanobeLib2ebook")
+        book.add_metadata("DC", "contributor", "Ranobe2ebook")
         book.add_metadata("DC", "source", "ranobelib.me")
         book.add_metadata(
             None,
