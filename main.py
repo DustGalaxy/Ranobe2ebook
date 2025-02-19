@@ -33,12 +33,9 @@ def main() -> None:
     try:
         app = Ranobe2ebook(handlers=get_handlers())
         app.run()
-    except RuntimeError as e:
-        logger.error(f"Runtime error occurred: {str(e)}")
     except Exception as e:
         logger.exception("Произошла непредвиденная ошибка")
         print(f"Произошла непредвиденная ошибка.\nПодробности в файле: {logs_dir}/app.log")
-    finally:
         input("Нажмите Enter для выхода...")
 
 

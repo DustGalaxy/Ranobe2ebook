@@ -21,6 +21,7 @@
 }
 #bar {
     width: 1fr;
+    margin: 0 0 1 0;
 }
 .w-fr5{
     width: 5fr;
