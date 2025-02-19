@@ -16,11 +16,8 @@
 .input.-valid:focus {
     border: tall $success;
 }
-Rule {
+.rule {
     margin: 0 1 0 1;
-}
-Log {
-    width: 1fr;
 }
 #bar {
     width: 1fr;

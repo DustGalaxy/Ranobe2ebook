@@ -136,13 +136,13 @@ class Ranobe2ebook(App):
 
                         with RadioSet(id="format", name="format", classes="w-full mb-1"):
                             yield Label("Формат")
-                            yield Rule(line_style="heavy")
+                            yield Rule(line_style="heavy", classes="rule")
                             yield RadioButton("EPUB", name="epub", value=True)
                             yield RadioButton("FB2", name="fb2")
 
                         with RadioSet(id="save_dir", classes="w-full mb-1"):
                             yield Label("Сохранить в папку")
-                            yield Rule(line_style="heavy")
+                            yield Rule(line_style="heavy", classes="rule")
                             yield RadioButton("Робочий стол", name="desktop", value=True)
                             yield RadioButton("Документы", name="documents")
                             yield RadioButton("Текущая папка", name="current_folder")
@@ -172,11 +172,8 @@ class Ranobe2ebook(App):
                             )
                         yield Label("", id="chapters_count", classes="w-full m1-2")
 
-                        yield Log(id="log")
-                        yield Log(
-                            id="chapter_list",
-                            auto_scroll=False,
-                        )
+                        yield Log(id="log", classes="w-frame")
+                        yield Log(id="chapter_list", auto_scroll=False, classes="w-frame")
 
     def action_open_issue_link(self) -> None:
         webbrowser.open("https://github.com/DustGalaxy/RanobeLib2ebook/issues")
