@@ -26,7 +26,6 @@ from textual.widgets import (
     ProgressBar,
     Log,
     Switch,
-    Static,
 )
 
 from textual_fspicker import SelectDirectory
@@ -85,18 +84,18 @@ class Ranobe2ebook(App):
         yield Footer()
 
         with Vertical():
-            with Horizontal(classes="m1-2 aling-center-middle"):
+            with Horizontal(classes="m1-2 horizontal aling-center-middle "):
                 yield Input(
                     id="input_link",
                     placeholder="Сcылка на ранобе. Пример: https://ranobelib.me/ru/book/165329--kusuriya-no-hitorigoto-ln-novel",
                     validators=[Function(is_valid_url, "Неправильная ссылка!")],
-                    classes="w-frame",
+                    classes="w-frame input",
                 )
 
                 yield Button("📋", id="paste_link", variant="primary", classes="mt-1")
                 yield Button("🧹", id="clear_link", variant="error", classes="mt-1")
                 yield Button("🔐", id="paste_token", variant="warning", classes="mt-1")
-            with Horizontal(classes="m1-2"):
+            with Horizontal(classes="horizontal m1-2"):
                 yield Button(
                     "Проверка ссылки",
                     id="check_link",
@@ -120,8 +119,8 @@ class Ranobe2ebook(App):
                 classes="w-full px-3",
             )
 
-            with VerticalScroll():
-                with Horizontal():
+            with VerticalScroll(classes="verticalScroll"):
+                with Horizontal(classes="horizontal"):
                     with Vertical(id="settings", classes=" m1-2"):
                         yield Select(
                             (),
@@ -130,8 +129,8 @@ class Ranobe2ebook(App):
                             classes="w-full mb-1",
                         )
                         yield Label("", id="dev_label", classes="w-full mb-1")
-                        with RadioSet(classes="w-full mb-1"):
-                            with Horizontal():
+                        with RadioSet(classes="w-full mb-1 h-3"):
+                            with Horizontal(classes="horizontal"):
                                 yield Label("Включать изображения   ")
                                 yield Switch(value=True, id="add_images", classes="swith_wo_border")
 
@@ -153,22 +152,23 @@ class Ranobe2ebook(App):
                                 id="input_save_dir",
                                 disabled=True,
                                 validators=[Function(os.path.isdir, "Invalid directory!")],
+                                classes="input",
                             )
                     with Vertical(classes="main-vertical-height w-frame"):
-                        with Horizontal(classes=""):
+                        with Horizontal(classes="horizontal"):
                             yield Input(
                                 id="input_start",
                                 placeholder="C",
                                 type="integer",
                                 disabled=True,
-                                classes="w-frame",
+                                classes="w-frame input",
                             )
                             yield Input(
                                 id="input_end",
                                 placeholder="Кол-во",
                                 type="integer",
                                 disabled=True,
-                                classes="w-frame",
+                                classes="w-frame input",
                             )
                         yield Label("", id="chapters_count", classes="w-full m1-2")
 
@@ -452,7 +452,8 @@ class Ranobe2ebook(App):
         match event.radio_set.id:
             case "save_dir":
                 self.dev_print(event.radio_set.pressed_button.label)
-                self.query_one("#input_save_dir").disabled = True
+                input_save_dir: Input = self.query_one("#input_save_dir")
+                input_save_dir.disabled = True
                 match event.radio_set.pressed_button.name:
                     case "desktop":
                         self.state.is_dir_selected = True
@@ -470,9 +471,11 @@ class Ranobe2ebook(App):
                     case "other_folder":
                         self.state.is_dir_selected = False
                         self.dir = None
-                        self.query_one("#input_save_dir").disabled = False
+                        input_save_dir.disabled = False
+
                         self.push_screen(
                             SelectDirectory(
+                                location=input_save_dir.value if input_save_dir.value else ".",
                                 title="Выберите папку",
                             ),
                             callback=self.show_selected,

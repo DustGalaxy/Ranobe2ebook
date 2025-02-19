@@ -1,28 +1,20 @@
-VerticalScroll {
+.verticalScroll {
     align: center middle;
     height: 1fr;
 }
-Horizontal {
+.horizontal {
     align: center top;
     height: auto;
 }
-Input {
+.input {
     border: tall $primary 60%;
-}
-Input.-valid {
-    border: tall $success 60%;
-}
-Input.-valid:focus {
-    border: tall $success;
-}
-Input {
     margin: 1 1;
 }
-ListView {
-    align: center top;
+.input.-valid {
+    border: tall $success 60%;
 }
-Pretty {
-    margin: 1 2;
+.input.-valid:focus {
+    border: tall $success;
 }
 Rule {
     margin: 0 1 0 1;
@@ -82,6 +74,9 @@ Log {
 .w-5 {
     width: 3;
 }
+.h-3 {
+    height: 3;
+}
 .aling-center-middle {
     align: center middle;
 }
@@ -95,4 +90,12 @@ Log {
 
 .main-vertical-height {
     height: 34;
+}
+
+#format {
+    height: 6;
+}
+
+#save_dir {
+    height: 13;
 }

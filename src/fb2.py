@@ -106,13 +106,13 @@ class FB2Handler(Handler):
             case _:
                 return ET.Element("custom")
 
-    def _parse_marks(self, marks: list, tag: ET.Element, text: str, index: int = 0) -> ET.Element:
-        if index >= len(marks):
+    def _parse_marks(self, marks: list, tag: ET.Element, text: str, _index: int = 0) -> ET.Element:
+        if _index >= len(marks):
             tag.text = text
             return tag
 
-        new_tag = self._get_tag_name(marks[index].get("type"))
-        tag.append(self._parse_marks(marks, new_tag, text, index + 1))
+        new_tag = self._get_tag_name(marks[_index].get("type"))
+        tag.append(self._parse_marks(marks, new_tag, text, _index + 1))
         return tag
 
     def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
@@ -217,15 +217,13 @@ class FB2Handler(Handler):
 
         return tags
 
-    def _make_chapter(
-        self, slug: str, priority_branch: str, item: ChapterMeta
-    ) -> tuple[list[ET.Element], dict[str, Image]]:
+    def _make_chapter(self, slug: str, priority_branch: str, chapter_meta: ChapterMeta) -> list[ET.Element]:
         try:
             chapter: ChapterData = get_chapter(
                 slug,
                 priority_branch,
-                item.number,
-                item.volume,
+                chapter_meta.number,
+                chapter_meta.volume,
             )
         except Exception as e:
             self.log_func(str(e))
@@ -258,18 +256,18 @@ class FB2Handler(Handler):
 
         self.log_func(f"Начинаем скачивать главы: {len(chapters_data)}")
 
-        for i, item in enumerate(chapters_data, 1):
+        for i, chapter_meta in enumerate(chapters_data, 1):
             time.sleep(delay)
             if worker.is_cancelled:
                 break
 
-            tags = self._make_chapter(slug, priority_branch, item)
+            tags = self._make_chapter(slug, priority_branch, chapter_meta)
 
             if tags is None:
                 self.log_func("Пропускаем главу.")
                 continue
 
-            chap_title = f"Том {item.volume}. Глава {item.number}. {item.name}"
+            chap_title = f"Том {chapter_meta.volume}. Глава {chapter_meta.number}. {chapter_meta.name}"
 
             self.book.chapters.append(
                 (
@@ -278,7 +276,7 @@ class FB2Handler(Handler):
                 )
             )
             self.log_func(
-                f"Скачали {i:>{len_total}}: Том {item.volume:>{volume_len}}. Глава {item.number:>{chap_len}}. {item.name}"
+                f"Скачали {i:>{len_total}}: Том {chapter_meta.volume:>{volume_len}}. Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
             )
 
             self.progress_bar_step(1)
