@@ -30,9 +30,6 @@ class EpubHandler(Handler):
                 imageE = self._insert_image(image)
                 tags.append(imageE)
                 continue
-            tagE = ET.fromstring(str(tag))
-
-            self.log_func(tagE.tag + " " + str(tagE.text))
             tags.append(ET.fromstring(str(tag)))
 
         return tags
