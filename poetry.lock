@@ -716,13 +716,13 @@ syntax = ["tree-sitter (>=0.23.0)", "tree-sitter-bash (>=0.23.0)", "tree-sitter-
 
 [[package]]
 name = "textual-fspicker"
-version = "0.3.0"
+version = "0.4.0"
 description = "A simple Textual filesystem picker dialog library."
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "textual_fspicker-0.3.0-py3-none-any.whl", hash = "sha256:e3fa421d55d32b6a8f76f3c2e70bbcf4bc891bab570a59f4ed13ea7c77a04b74"},
-    {file = "textual_fspicker-0.3.0.tar.gz", hash = "sha256:ec6a2e308efc26f107100a7dedec6f3da3643d808e2e9be503d4de63f13b310a"},
+    {file = "textual_fspicker-0.4.0-py3-none-any.whl", hash = "sha256:ab4e84d699e83b9737fc3c77b04c9dc6305da059372e316d88129d312216f28d"},
+    {file = "textual_fspicker-0.4.0.tar.gz", hash = "sha256:f1a83c65518cf29b9bbdbb4871e623fefae7495a9178316f1e1913f7500de23d"},
 ]
 
 [package.dependencies]
@@ -773,4 +773,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "dbb46fb72aeafc9dc7765b8634499660139f4eaed3b9daa194961425ca140df9"
+content-hash = "070ccc62ce7d955097323f8ff82cdad9135af3a48ef88253920f75849152cc5d"

@@ -474,6 +474,8 @@ class Ranobe2ebook(App):
                             SelectDirectory(
                                 location=input_save_dir.value if input_save_dir.value else ".",
                                 title="Выберите папку",
+                                select_button="Выбрать",
+                                cancel_button="Отмена",
                             ),
                             callback=self.show_selected,
                         )
