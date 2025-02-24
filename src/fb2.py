@@ -1,11 +1,10 @@
 import os
 import re
 import time
-import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from xml.etree import ElementTree as ET
 
-from FB2 import FictionBook2
+from FB2 import FictionBook2dataclass
 from FB2.FB2Builder import FB2Builder
 from bs4 import BeautifulSoup
 
@@ -14,7 +13,21 @@ from src.api import get_chapter, get_image_content
 from src.utils import set_authors
 
 
+@dataclass
+class MyFictionBook2dataclass(FictionBook2dataclass.FictionBook2dataclass):
+    root: ET.Element = ET.Element(
+        "FictionBook",
+        attrib={
+            "xmlns": "http://www.gribuser.ru/xml/fictionbook/2.0",
+            "xmlns:xlink": "http://www.w3.org/1999/xlink",
+        },
+    )
+    images: list[Image] = field(default_factory=list)
+
+
 class MyFB2Builder(FB2Builder):
+    book: MyFictionBook2dataclass
+
     def GetFB2(self, root: ET.Element = None) -> ET.Element:
         if root is None:
             root = ET.Element(
@@ -34,21 +47,27 @@ class MyFB2Builder(FB2Builder):
     def _AddBody(self, root: ET.Element) -> None:
         if len(self.book.chapters):
             bodyElement = ET.SubElement(root, "body")
-            # ET.SubElement(ET.SubElement(bodyElement, "title"),
-            #               "p").text = self.book.titleInfo.title
             for chapter in self.book.chapters:
                 bodyElement.append(self.BuildSectionFromChapter(chapter))
 
+    def _AddBinaries(self, root: ET.Element) -> None:
+        if self.book.titleInfo.coverPageImages is not None:
+            for i, coverImage in enumerate(self.book.titleInfo.coverPageImages):
+                self._AddBinary(root, f"title-info-cover_{i}", "image/jpeg", coverImage)
+        if self.book.sourceTitleInfo and self.book.sourceTitleInfo.coverPageImages:
+            for i, coverImage in enumerate(self.book.sourceTitleInfo.coverPageImages):
+                self._AddBinary(root, f"src-title-info-cover#{i}", "image/jpeg", coverImage)
+        if len(self.book.images) > 0:
+            for image in self.book.images:
+                image_content = get_image_content(image.url, image.extension)
+                self._AddBinary(root, image.uid, f"image/{image.extension}", image_content)
+
 
 @dataclass
-class MyFictionBook2(FictionBook2):
-    root: ET.Element = ET.Element(
-        "FictionBook",
-        attrib={
-            "xmlns": "http://www.gribuser.ru/xml/fictionbook/2.0",
-            "xmlns:xlink": "http://www.w3.org/1999/xlink",
-        },
-    )
+class MyFictionBook2(MyFictionBook2dataclass):
+    def write(self, filename: str):
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(str(self))
 
     def __str__(self) -> str:
         return MyFB2Builder._PrettifyXml(MyFB2Builder(self).GetFB2(root=self.root))
@@ -80,15 +99,7 @@ class FB2Handler(Handler):
 
     def _insert_image(self, image: Image) -> ET.Element:
         if self.with_images:
-            binaryE = ET.Element(
-                "binary",
-                attrib={
-                    "id": image.uid,
-                    "content-type": image.media_type,
-                },
-            )
-            binaryE.text = base64.b64encode(get_image_content(image.url, image.extension)).decode("utf-8")
-            self.book.root.append(binaryE)
+            self.book.images.append(image)
             return ET.Element("image", attrib={"xlink:href": f"#{image.uid}"})
         else:
             return ET.Element("custom")
@@ -229,6 +240,7 @@ class FB2Handler(Handler):
             self.log_func(str(e))
             return None
 
+        tags: list[ET.Element] = []
         if chapter.type == "html":
             tags = self._parse_html(chapter)
         elif chapter.type == "doc":

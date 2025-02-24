@@ -30,6 +30,9 @@ class EpubHandler(Handler):
                 imageE = self._insert_image(image)
                 tags.append(imageE)
                 continue
+            tagE = ET.fromstring(str(tag))
+
+            self.log_func(tagE.tag + " " + str(tagE.text))
             tags.append(ET.fromstring(str(tag)))
 
         return tags
@@ -170,7 +173,7 @@ class EpubHandler(Handler):
             )
         except Exception as e:
             self.log_func(str(e))
-            return None, None
+            return None
 
         chapter_title = f"Том {item.volume}. Глава {item.number}. {item.name}"
 
@@ -178,20 +181,19 @@ class EpubHandler(Handler):
             title=chapter_title,
             file_name=item.number + "_" + item.volume + ".xhtml",
         )
-
+        tags: list[ET.Element] = []
         if chapter.type == "html":
             tags: list[str] = self._parse_html(chapter)
-            epub_chapter.set_content(f"<h1>{chapter_title}</h1>" + "".join([str(tag) for tag in tags]))
-
         elif chapter.type == "doc":
             tags: list[ET.Element] = self._parse_doc(chapter)
-            epub_chapter.set_content(
-                f"<h1>{chapter_title}</h1>"
-                + "".join([ET.tostring(tag, encoding="unicode", method="html") for tag in tags]),
-            )
         else:
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в EPUB!")
-            return None, None
+            return None
+
+        epub_chapter.set_content(
+            f"<h1>{chapter_title}</h1>"
+            + "".join([ET.tostring(tag, encoding="unicode", method="html") for tag in tags]),
+        )
 
         return epub_chapter
 
