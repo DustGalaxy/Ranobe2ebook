@@ -183,14 +183,8 @@ class FB2Handler(Handler):
 
             case "horizontalRule":
                 center = {"style": "text-align: center"}
-                hr = ET.Element("p")
-                p1 = ET.SubElement(hr, "p", attrib=center)
-                inner_text = ET.SubElement(hr, "p", attrib=center)
-                p2 = ET.SubElement(hr, "p", attrib=center)
-
-                p1.text = " "
-                inner_text.text = "***"
-                p2.text = " "
+                hr = ET.Element("p", attrib=center)
+                hr.text = "***"
                 return hr
 
             case "bulletList" | "orderedList":
@@ -223,12 +217,17 @@ class FB2Handler(Handler):
             )
 
         for item in chapter.content:
-            tag = self._tag_parser(item, images=images)
-            tags.append(tag)
+            tag: ET.Element = self._tag_parser(item, images=images)
+            soup = BeautifulSoup(ET.tostring(tag), "lxml")
+            for span in soup.find_all("custom"):
+                span.unwrap()
+            clean_html = str(soup.body).replace("<body>", "").replace("</body>", "")
+
+            tags.append(ET.fromstring(clean_html))
 
         return tags
 
-    def _make_chapter(self, slug: str, priority_branch: str, chapter_meta: ChapterMeta) -> list[ET.Element]:
+    def _make_chapter(self, slug: str, priority_branch: str, chapter_meta: ChapterMeta) -> list[ET.Element] | None:
         try:
             chapter: ChapterData = get_chapter(
                 slug,
@@ -237,7 +236,7 @@ class FB2Handler(Handler):
                 chapter_meta.volume,
             )
         except Exception as e:
-            self.log_func(str(e))
+            self.log_func("Ошибка: " + str(e))
             return None
 
         tags: list[ET.Element] = []
@@ -248,6 +247,7 @@ class FB2Handler(Handler):
 
         else:
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в FB2!")
+            return None
 
         return tags
 

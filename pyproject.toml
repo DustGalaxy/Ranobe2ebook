@@ -20,6 +20,7 @@ pyperclip = "^1.9.0"
 pyjwt = "^2.9.0"
 textual = "1.0.0"
 textual-fspicker = "^0.4.0"
+lxml = "^5.3.1"
 
 [tool.ruff]
 

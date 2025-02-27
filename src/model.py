@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal
+from typing import Callable, Literal
 from xml.etree import ElementTree as ET
 
 
@@ -110,7 +110,7 @@ class Handler(ABC):
         pass
 
     @abstractmethod
-    def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> list[ET.Element]:
+    def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> list[ET.Element] | None:
         pass
 
     @abstractmethod

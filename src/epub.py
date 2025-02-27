@@ -160,7 +160,7 @@ class EpubHandler(Handler):
 
         return tags
 
-    def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> epub.EpubHtml:
+    def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> epub.EpubHtml | None:
         try:
             chapter: ChapterData = get_chapter(
                 slug,
@@ -169,7 +169,7 @@ class EpubHandler(Handler):
                 item.volume,
             )
         except Exception as e:
-            self.log_func(str(e))
+            self.log_func("Ошибка: " + str(e))
             return None
 
         chapter_title = f"Том {item.volume}. Глава {item.number}. {item.name}"
@@ -187,10 +187,14 @@ class EpubHandler(Handler):
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в EPUB!")
             return None
 
-        epub_chapter.set_content(
-            f"<h1>{chapter_title}</h1>"
-            + "".join([ET.tostring(tag, encoding="unicode", method="html") for tag in tags]),
-        )
+        hmtl_str = "".join([ET.tostring(tag, encoding="unicode", method="html") for tag in tags])
+
+        soup = BeautifulSoup(hmtl_str, "html.parser")
+        for span in soup.find_all("span"):
+            if not span.attrs:  # Если у span нет атрибутов
+                span.unwrap()
+
+        epub_chapter.set_content(f"<h1>{chapter_title}</h1>" + str(soup))
 
         return epub_chapter
 

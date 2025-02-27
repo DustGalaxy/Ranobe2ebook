@@ -454,7 +454,6 @@ class Ranobe2ebook(App):
                 match event.radio_set.pressed_button.name:
                     case "desktop":
                         self.state.is_dir_selected = True
-
                         self.dir = os.path.normpath(os.path.expanduser("~/Desktop"))
                         self.dev_print(self.dir)
                     case "documents":
