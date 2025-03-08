@@ -14,7 +14,7 @@
 
 ---
 
-Для комфортного использования рекомендуется установить [Windows Terminal](https://www.microsoft.com/store/productId/9N0DX20HK701?ocid=pdpshare), это современный терминал для Windows.
+Для комфортного использования на Windows 10 рекомендуется установить [Windows Terminal](https://www.microsoft.com/store/productId/9N0DX20HK701?ocid=pdpshare), это современный терминал для Windows.
 
 ---
 
