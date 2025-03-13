@@ -59,8 +59,7 @@ class MyFB2Builder(FB2Builder):
                 self._AddBinary(root, f"src-title-info-cover#{i}", "image/jpeg", coverImage)
         if len(self.book.images) > 0:
             for image in self.book.images:
-                image_content = get_image_content(image.url, image.extension)
-                self._AddBinary(root, image.uid, f"image/{image.extension}", image_content)
+                self._AddBinary(root, image.uid, image.media_type, image.content)
 
 
 @dataclass
@@ -99,6 +98,10 @@ class FB2Handler(Handler):
 
     def _insert_image(self, image: Image) -> ET.Element:
         if self.with_images:
+            for img in self.book.images:
+                if img.content == image.content:
+                    return ET.Element("image", attrib={"xlink:href": f"#{img.uid}"})
+
             self.book.images.append(image)
             return ET.Element("image", attrib={"xlink:href": f"#{image.uid}"})
         else:
@@ -214,6 +217,7 @@ class FB2Handler(Handler):
                 name=attachment.name,
                 url=img_base_url + attachment.url,
                 extension=attachment.extension,
+                content=get_image_content(img_base_url + attachment.url, attachment.extension),
             )
 
         for item in chapter.content:
@@ -281,12 +285,10 @@ class FB2Handler(Handler):
 
             chap_title = f"Том {chapter_meta.volume}. Глава {chapter_meta.number}. {chapter_meta.name}"
 
-            self.book.chapters.append(
-                (
-                    chap_title,
-                    [tag for tag in tags],
-                )
-            )
+            self.book.chapters.append((
+                chap_title,
+                [tag for tag in tags],
+            ))
             self.log_func(
                 f"Скачали {i:>{len_total}}: Том {chapter_meta.volume:>{volume_len}}. Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
             )

@@ -1,7 +1,6 @@
 import os
 import webbrowser
 from pathlib import Path
-from typing import Literal
 from urllib.parse import urlparse
 
 import traceback
@@ -61,7 +60,7 @@ class Ranobe2ebook(App):
     def __init__(
         self,
         *,
-        handlers: dict[Literal["fb2", "epub"], Handler],
+        handlers: dict[str, Handler],
     ) -> None:
         super().__init__()
         self.handlers = handlers
@@ -277,12 +276,10 @@ class Ranobe2ebook(App):
 
         options: list[tuple[str, str]] = []
         for i, branch in enumerate(branchs):
-            options.append(
-                (
-                    f"{branch.get('name')}. Переводчики: {' & '.join([team.get('name') for team in branch.get('teams')])}",
-                    str(branch.get("id")),
-                )
-            )
+            options.append((
+                f"{branch.get('name')}. Переводчики: {' & '.join([team.get('name') for team in branch.get('teams')])}",
+                str(branch.get("id")),
+            ))
 
         if len(options) == 0:
             options = [("Main branch", "0")]
@@ -308,12 +305,10 @@ class Ranobe2ebook(App):
         chap_len = len(str(max(self.chapters_data, key=lambda x: len(str(x.number))).number))
         volume_len = len(str(self.chapters_data[-1].volume))
 
-        self.query_one("#chapter_list").write_lines(
-            [
-                f"{i:>{total_len}}: Том {chapter.volume:>{volume_len}}. Глава {chapter.number:>{chap_len}}. {chapter.name}"
-                for i, chapter in enumerate(self.chapters_data, 1)
-            ]
-        )
+        self.query_one("#chapter_list").write_lines([
+            f"{i:>{total_len}}: Том {chapter.volume:>{volume_len}}. Глава {chapter.number:>{chap_len}}. {chapter.name}"
+            for i, chapter in enumerate(self.chapters_data, 1)
+        ])
 
         log.write_line("\nГотовы к скачиванию!")
 

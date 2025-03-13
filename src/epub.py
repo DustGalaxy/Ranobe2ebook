@@ -36,12 +36,16 @@ class EpubHandler(Handler):
 
     def _insert_image(self, image: Image) -> ET.Element:
         if self.with_images:
+            for item in self.book.items:
+                if isinstance(item, epub.EpubImage) and item.content == image.content:
+                    return ET.Element("img", attrib={"src": item.file_name})
+
             self.book.add_item(
                 epub.EpubImage(
-                    uid=image.name,
+                    uid=image.uid,
                     file_name=image.static_url,
                     media_type=image.media_type,
-                    content=get_image_content(image.url, image.extension),
+                    content=image.content,
                 )
             )
             return ET.Element("img", attrib={"src": image.static_url})
@@ -152,6 +156,7 @@ class EpubHandler(Handler):
                 name=attachment.name,
                 url=img_base_url + attachment.url,
                 extension=attachment.extension,
+                content=get_image_content(img_base_url + attachment.url, attachment.extension),
             )
 
         for item in chapter.content:
@@ -191,7 +196,7 @@ class EpubHandler(Handler):
 
         soup = BeautifulSoup(hmtl_str, "html.parser")
         for span in soup.find_all("span"):
-            if not span.attrs:  # Если у span нет атрибутов
+            if not span.attrs:
                 span.unwrap()
 
         epub_chapter.set_content(f"<h1>{chapter_title}</h1>" + str(soup))
