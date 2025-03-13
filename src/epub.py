@@ -26,6 +26,7 @@ class EpubHandler(Handler):
                     name=img_filename.split(".")[0],
                     url=url,
                     extension=img_filename.split(".")[-1],
+                    content=get_image_content(url, img_filename.split(".")[-1]),
                 )
                 imageE = self._insert_image(image)
                 tags.append(imageE)
@@ -42,7 +43,7 @@ class EpubHandler(Handler):
 
             self.book.add_item(
                 epub.EpubImage(
-                    uid=image.uid,
+                    uid=image.name,
                     file_name=image.static_url,
                     media_type=image.media_type,
                     content=image.content,
@@ -242,8 +243,10 @@ class EpubHandler(Handler):
         safe_title = re.sub(r'[<>:"/\\|?*]', "", self.book.title)
         file_path = os.path.join(dir, f"{safe_title}.epub")
         epub.write_epub(file_path, self.book)
+
         self.log_func(f"Книга {self.book.title} сохранена в формате Epub.")
         self.log_func(f"В каталоге {dir} создана книга {safe_title}.epub.")
+        self.book = None
 
     def end_book(self) -> None:
         self.book.toc = (epub.Section("1"),) + tuple(

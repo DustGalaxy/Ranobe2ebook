@@ -88,6 +88,7 @@ class FB2Handler(Handler):
                     name=img_filename.split(".")[0],
                     url=url,
                     extension=img_filename.split(".")[-1],
+                    content=get_image_content(url, img_filename.split(".")[-1]),
                 )
                 imageE = self._insert_image(image)
                 tags.append(imageE)
@@ -301,6 +302,7 @@ class FB2Handler(Handler):
         self.book.write(file_path)
         self.log_func(f"Книга {self.book.titleInfo.title} сохранена в формате FB2!")
         self.log_func(f"В каталоге {dir} создана книга {safe_title}.fb2")
+        self.book = None
 
     def end_book(self) -> None:
         self.book.titleInfo.sequences = [

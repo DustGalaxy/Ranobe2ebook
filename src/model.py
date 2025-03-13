@@ -18,9 +18,9 @@ class Image:
     name: str
     url: str
     extension: str
+    content: bytes
     static_url: str = ""
     media_type: str = ""
-    content: bytes = b""
 
     def __post_init__(self) -> None:
         self.static_url = f"static/{self.uid}"
