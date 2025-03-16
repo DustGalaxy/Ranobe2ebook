@@ -15,8 +15,6 @@ class State:
 @dataclass
 class Image:
     uid: str
-    name: str
-    url: str
     extension: str
     content: bytes
     static_url: str = ""

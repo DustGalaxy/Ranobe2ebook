@@ -15,13 +15,6 @@ from src.utils import set_authors
 
 @dataclass
 class MyFictionBook2dataclass(FictionBook2dataclass.FictionBook2dataclass):
-    root: ET.Element = ET.Element(
-        "FictionBook",
-        attrib={
-            "xmlns": "http://www.gribuser.ru/xml/fictionbook/2.0",
-            "xmlns:xlink": "http://www.w3.org/1999/xlink",
-        },
-    )
     images: list[Image] = field(default_factory=list)
 
 
@@ -69,7 +62,7 @@ class MyFictionBook2(MyFictionBook2dataclass):
             f.write(str(self))
 
     def __str__(self) -> str:
-        return MyFB2Builder._PrettifyXml(MyFB2Builder(self).GetFB2(root=self.root))
+        return MyFB2Builder._PrettifyXml(MyFB2Builder(self).GetFB2())
 
 
 class FB2Handler(Handler):
@@ -79,14 +72,14 @@ class FB2Handler(Handler):
         soup = BeautifulSoup(chapter.content, "html.parser")
         tags: list[ET.Element] = []
         for tag in soup.find_all(recursive=False):
+            if tag.name == "p":
+                tag.attrs.pop("data-paragraph-index")
             if tag.name == "img":
                 url = tag["src"]
                 img_filename = url.split("/")[-1]
                 img_uid = f"{chapter.id}_{img_filename}"
                 image = Image(
                     uid=img_uid,
-                    name=img_filename.split(".")[0],
-                    url=url,
                     extension=img_filename.split(".")[-1],
                     content=get_image_content(url, img_filename.split(".")[-1]),
                 )
@@ -215,8 +208,6 @@ class FB2Handler(Handler):
             img_uid = f"{chapter.id}_{attachment.filename}"
             images[attachment.name] = Image(
                 uid=img_uid,
-                name=attachment.name,
-                url=img_base_url + attachment.url,
                 extension=attachment.extension,
                 content=get_image_content(img_base_url + attachment.url, attachment.extension),
             )
