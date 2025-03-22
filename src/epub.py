@@ -182,6 +182,7 @@ class EpubHandler(Handler):
             title=chapter_title,
             file_name=item.number + "_" + item.volume + ".xhtml",
         )
+
         tags: list[ET.Element] = []
         if chapter.type == "html":
             tags: list[str] = self._parse_html(chapter)
@@ -219,21 +220,22 @@ class EpubHandler(Handler):
 
         self.log_func(f"\nНачинаем скачивать главы: {len(chapters_data)}")
 
-        for i, item in enumerate(chapters_data, 1):
+        for i, chapter_meta in enumerate(chapters_data, 1):
             time.sleep(delay)
             if worker.is_cancelled:
                 break
 
-            epub_chapter = self._make_chapter(name, priority_branch, item)
-            if epub_chapter is None:
+            chapter = self._make_chapter(name, priority_branch, chapter_meta)
+            if chapter:
+                self.book.add_item(chapter)
+
+                self.log_func(
+                    f"Скачали {i:>{total_len}}: \
+                        Том {chapter_meta.volume:>{volume_len}}. \
+                            Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
+                )
+            else:
                 self.log_func("Пропускаем главу.")
-                continue
-
-            self.book.add_item(epub_chapter)
-
-            self.log_func(
-                f"Скачали {i:>{total_len}}: Том {item.volume:>{volume_len}}. Глава {item.number:>{chap_len}}. {item.name}"
-            )
 
             self.progress_bar_step(1)
 

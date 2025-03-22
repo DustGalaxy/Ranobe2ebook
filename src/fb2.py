@@ -1,3 +1,4 @@
+from ast import Tuple
 import os
 import re
 import time
@@ -20,22 +21,6 @@ class MyFictionBook2dataclass(FictionBook2dataclass.FictionBook2dataclass):
 
 class MyFB2Builder(FB2Builder):
     book: MyFictionBook2dataclass
-
-    def GetFB2(self, root: ET.Element = None) -> ET.Element:
-        if root is None:
-            root = ET.Element(
-                "FictionBook",
-                attrib={
-                    "xmlns": "http://www.gribuser.ru/xml/fictionbook/2.0",
-                    "xmlns:xlink": "http://www.w3.org/1999/xlink",
-                },
-            )
-        self._AddStylesheets(root)
-        self._AddCustomInfos(root)
-        self._AddDescription(root)
-        self._AddBody(root)
-        self._AddBinaries(root)
-        return root
 
     def _AddBody(self, root: ET.Element) -> None:
         if len(self.book.chapters):
@@ -202,7 +187,6 @@ class FB2Handler(Handler):
         attachments = chapter.attachments
         img_base_url = "https://ranobelib.me"
         images: dict[str, Image] = {}
-        tags: list[ET.Element] = []
 
         for attachment in attachments:
             img_uid = f"{chapter.id}_{attachment.filename}"
@@ -212,18 +196,17 @@ class FB2Handler(Handler):
                 content=get_image_content(img_base_url + attachment.url, attachment.extension),
             )
 
+        tags: list[ET.Element] = []
         for item in chapter.content:
             tag: ET.Element = self._tag_parser(item, images=images)
-            soup = BeautifulSoup(ET.tostring(tag), "lxml")
-            for span in soup.find_all("custom"):
-                span.unwrap()
-            clean_html = str(soup.body).replace("<body>", "").replace("</body>", "")
 
-            tags.append(ET.fromstring(clean_html))
+            tags.append(tag)
 
         return tags
 
-    def _make_chapter(self, slug: str, priority_branch: str, chapter_meta: ChapterMeta) -> list[ET.Element] | None:
+    def _make_chapter(
+        self, slug: str, priority_branch: str, chapter_meta: ChapterMeta
+    ) -> Tuple[str, list[ET.Element]] | None:
         try:
             chapter: ChapterData = get_chapter(
                 slug,
@@ -235,17 +218,26 @@ class FB2Handler(Handler):
             self.log_func("Ошибка: " + str(e))
             return None
 
-        tags: list[ET.Element] = []
+        tags: list[ET.Element] = None
+
         if chapter.type == "html":
             tags = self._parse_html(chapter)
         elif chapter.type == "doc":
             tags = self._parse_doc(chapter)
-
         else:
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в FB2!")
             return None
 
-        return tags
+        clean_tags = []
+        for element in tags:
+            soup = BeautifulSoup(ET.tostring(element), "lxml")
+            for span in soup.find_all("custom"):
+                span.unwrap()
+            clean_tags.append(str(soup.body).replace("<body>", "").replace("</body>", ""))  #
+        clean_tags = ET.fromstringlist(clean_tags)
+
+        chapter_title = f"Том {chapter_meta.volume}. Глава {chapter_meta.number}. {chapter_meta.name}"
+        return (chapter_title, clean_tags)
 
     def fill_book(
         self,
@@ -269,21 +261,18 @@ class FB2Handler(Handler):
             if worker.is_cancelled:
                 break
 
-            tags = self._make_chapter(slug, priority_branch, chapter_meta)
+            chapter = self._make_chapter(slug, priority_branch, chapter_meta)
 
-            if tags is None:
+            if chapter:
+                self.book.chapters.append(chapter)
+
+                self.log_func(
+                    f"Скачали {i:>{len_total}}: \
+                        Том {chapter_meta.volume:>{volume_len}}. \
+                        Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
+                )
+            else:
                 self.log_func("Пропускаем главу.")
-                continue
-
-            chap_title = f"Том {chapter_meta.volume}. Глава {chapter_meta.number}. {chapter_meta.name}"
-
-            self.book.chapters.append((
-                chap_title,
-                [tag for tag in tags],
-            ))
-            self.log_func(
-                f"Скачали {i:>{len_total}}: Том {chapter_meta.volume:>{volume_len}}. Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
-            )
 
             self.progress_bar_step(1)
 
