@@ -52,6 +52,12 @@ class MyFictionBook2(MyFictionBook2dataclass):
 
 class FB2Handler(Handler):
     book: MyFictionBook2
+    style_tags = {
+        "bold": ET.Element("strong"),
+        "italic": ET.Element("emphasis"),
+        "underline": ET.Element("style", attrib={"name": "underline"}),
+        "strike": ET.Element("strikethrough"),
+    }
 
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
         soup = BeautifulSoup(chapter.content, "html.parser")
@@ -86,25 +92,12 @@ class FB2Handler(Handler):
         else:
             return ET.Element("custom")
 
-    def _get_tag_name(self, mark_type: str) -> ET.Element:
-        match mark_type:
-            case "bold":
-                return ET.Element("strong")
-            case "italic":
-                return ET.Element("emphasis")
-            case "underline":
-                return ET.Element("style", attrib={"name": "underline"})
-            case "strike":
-                return ET.Element("strikethrough")
-            case _:
-                return ET.Element("custom")
-
     def _parse_marks(self, marks: list, tag: ET.Element, text: str, _index: int = 0) -> ET.Element:
         if _index >= len(marks):
             tag.text = text
             return tag
 
-        new_tag = self._get_tag_name(marks[_index].get("type"))
+        new_tag = self.style_tags.get(marks[_index].get("type"), ET.Element("span"))
         tag.append(self._parse_marks(marks, new_tag, text, _index + 1))
         return tag
 
@@ -166,7 +159,7 @@ class FB2Handler(Handler):
             case "horizontalRule":
                 center = {"style": "text-align: center"}
                 hr = ET.Element("p", attrib=center)
-                hr.text = "***"
+                hr.text = "* * *"
                 return hr
 
             case "bulletList" | "orderedList":

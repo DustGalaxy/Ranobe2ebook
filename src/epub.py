@@ -12,6 +12,12 @@ from src.api import get_chapter, get_image_content
 
 class EpubHandler(Handler):
     book: epub.EpubBook
+    style_tags = {
+        "bold": ET.Element("b"),
+        "italic": ET.Element("i"),
+        "underline": ET.Element("ins"),
+        "strike": ET.Element("del"),
+    }
 
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
         soup = BeautifulSoup(chapter.content, "html.parser")
@@ -53,26 +59,13 @@ class EpubHandler(Handler):
         else:
             return ET.Element("span")
 
-    def _get_tag_name(self, mark_type: str) -> ET.Element:
-        match mark_type:
-            case "bold":
-                return ET.Element("b")
-            case "italic":
-                return ET.Element("i")
-            case "underline":
-                return ET.Element("ins")
-            case "strike":
-                return ET.Element("del")
-            case _:
-                return ET.Element("span")
-
-    def _parse_marks(self, marks: list, tag: ET.Element, text: str, index: int = 0) -> ET.Element:
-        if index >= len(marks):
+    def _parse_marks(self, marks: list, tag: ET.Element, text: str, _index: int = 0) -> ET.Element:
+        if _index >= len(marks):
             tag.text = text
             return tag
 
-        new_tag = self._get_tag_name(marks[index].get("type"))
-        tag.append(self._parse_marks(marks, new_tag, text, index + 1))
+        new_tag = self.style_tags.get(marks[_index].get("type"), ET.Element("span"))
+        tag.append(self._parse_marks(marks, new_tag, text, _index + 1))
         return tag
 
     def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
