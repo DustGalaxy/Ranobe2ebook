@@ -1,4 +1,3 @@
-from ast import Tuple
 import os
 import re
 import time
@@ -69,28 +68,29 @@ class FB2Handler(Handler):
                 url = tag["src"]
                 img_filename = url.split("/")[-1]
                 img_uid = f"{chapter.id}_{img_filename}"
-                image = Image(
-                    uid=img_uid,
-                    extension=img_filename.split(".")[-1],
-                    content=get_image_content(url, img_filename.split(".")[-1]),
-                )
-                imageE = self._insert_image(image)
-                tags.append(imageE)
+                try:
+                    content = get_image_content(url, img_filename.split(".")[-1])
+                    image = Image(
+                        uid=img_uid,
+                        extension=img_filename.split(".")[-1],
+                        content=content,
+                    )
+                    imageE = self._insert_image(image) if self.with_images else ET.Element("custom")
+                    tags.append(imageE)
+                except Exception as e:
+                    self.log_func("Ошибка: " + str(e))
                 continue
             tags.append(ET.fromstring(str(tag)))
 
         return tags
 
     def _insert_image(self, image: Image) -> ET.Element:
-        if self.with_images:
-            for img in self.book.images:
-                if img.content == image.content:
-                    return ET.Element("image", attrib={"xlink:href": f"#{img.uid}"})
+        for img in self.book.images:
+            if img.content == image.content:
+                return ET.Element("image", attrib={"{http://www.w3.org/1999/xlink}href": f"#{img.uid}"})
 
-            self.book.images.append(image)
-            return ET.Element("image", attrib={"xlink:href": f"#{image.uid}"})
-        else:
-            return ET.Element("custom")
+        self.book.images.append(image)
+        return ET.Element("image", attrib={"{http://www.w3.org/1999/xlink}href": f"#{image.uid}"})
 
     def _parse_marks(self, marks: list, tag: ET.Element, text: str, _index: int = 0) -> ET.Element:
         if _index >= len(marks):
@@ -149,9 +149,10 @@ class FB2Handler(Handler):
             case "image":
                 images: dict[str, Image] = kwargs.get("images")
                 if not images:
-                    return ET.Element("span")
+                    return ET.Element("custom")
                 img_name = tag.get("attrs").get("images")[-1].get("image")
-                return self._insert_image(images.get(img_name))
+                img = images.get(img_name)
+                return self._insert_image(img) if img and self.with_images else ET.Element("custom")
 
             case "paragraph":
                 return self._parse_paragraph(tag)
@@ -168,7 +169,10 @@ class FB2Handler(Handler):
 
             case "heading":
                 level = tag.get("attrs").get("level")
-                return self._parse_paragraph(tag, "title" if level == 2 else "subtitle")
+                el_type = "title" if level == 2 else "subtitle"
+                heading = ET.Element(el_type)
+                heading.append(self._parse_paragraph(tag))
+                return heading
 
             case "blockquote":
                 blockquoteE = ET.Element("epigraph")
@@ -183,23 +187,27 @@ class FB2Handler(Handler):
 
         for attachment in attachments:
             img_uid = f"{chapter.id}_{attachment.filename}"
+            try:
+                content = get_image_content(img_base_url + attachment.url, attachment.extension)
+            except Exception as e:
+                self.log_func("Ошибка: " + str(e))
+                continue
+
             images[attachment.name] = Image(
                 uid=img_uid,
                 extension=attachment.extension,
-                content=get_image_content(img_base_url + attachment.url, attachment.extension),
+                content=content,
             )
 
         tags: list[ET.Element] = []
         for item in chapter.content:
             tag: ET.Element = self._tag_parser(item, images=images)
-
             tags.append(tag)
-
         return tags
 
     def _make_chapter(
         self, slug: str, priority_branch: str, chapter_meta: ChapterMeta
-    ) -> Tuple[str, list[ET.Element]] | None:
+    ) -> tuple[str, list[ET.Element]] | None:
         try:
             chapter: ChapterData = get_chapter(
                 slug,
@@ -221,16 +229,18 @@ class FB2Handler(Handler):
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в FB2!")
             return None
 
-        clean_tags = []
+        clean_tags: list[str] = []
         for element in tags:
-            soup = BeautifulSoup(ET.tostring(element), "lxml")
-            for span in soup.find_all("custom"):
-                span.unwrap()
-            clean_tags.append(str(soup.body).replace("<body>", "").replace("</body>", ""))  #
-        clean_tags = ET.fromstringlist(clean_tags)
+            text_tag = ET.tostring(element)
+            soup = BeautifulSoup(text_tag, "html.parser")
+            for custom in soup.find_all("custom"):
+                custom.unwrap()
+            clean_tags.append(str(soup))
+
+        clean_elements = [ET.fromstring(tag) for tag in clean_tags]
 
         chapter_title = f"Том {chapter_meta.volume}. Глава {chapter_meta.number}. {chapter_meta.name}"
-        return (chapter_title, clean_tags)
+        return (chapter_title, clean_elements)
 
     def fill_book(
         self,
@@ -260,9 +270,7 @@ class FB2Handler(Handler):
                 self.book.chapters.append(chapter)
 
                 self.log_func(
-                    f"Скачали {i:>{len_total}}: \
-                        Том {chapter_meta.volume:>{volume_len}}. \
-                        Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
+                    f"Скачали {i:>{len_total}}: Том {chapter_meta.volume:>{volume_len}}. Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
                 )
             else:
                 self.log_func("Пропускаем главу.")

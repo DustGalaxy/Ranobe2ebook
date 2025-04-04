@@ -72,16 +72,14 @@ class Handler(ABC):
 
     with_images: bool
 
+    style_tags: dict[str, ET.Element] = field(default_factory=dict)
+
     def __init__(self, log_func: Callable, progress_bar_step: Callable) -> None:
         self.log_func = log_func
         self.progress_bar_step = progress_bar_step
 
     @abstractmethod
     def _insert_image(self, image: Image) -> ET.Element:
-        pass
-
-    @abstractmethod
-    def _get_tag_name(self, mark_type: str) -> ET.Element:
         pass
 
     @abstractmethod

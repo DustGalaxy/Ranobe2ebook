@@ -25,20 +25,18 @@ def get_branchs(ranobe_id: str) -> dict:
 
 def get_ranobe_data(name: str) -> dict:
     url_base = f"{BASE_API_URL}/manga/{name}?"
-    url = url_base + "&".join(
-        [
-            f"fields[]={item}"
-            for item in [
-                "authors",
-                "summary",
-                "genres",
-                "chap_count",
-                "releaseDate",
-                "franchise",
-                "rate",
-            ]
+    url = url_base + "&".join([
+        f"fields[]={item}"
+        for item in [
+            "authors",
+            "summary",
+            "genres",
+            "chap_count",
+            "releaseDate",
+            "franchise",
+            "rate",
         ]
-    )
+    ])
     response = requests.get(
         url,
         headers={
@@ -83,7 +81,13 @@ def get_image_content(url: str, format: str) -> bytes:
         if not is_url(url):
             return b""
 
-        response = scraper.get(url)
+        for _ in range(3):
+            try:
+                # Получаем картинку по ссылке
+                response = scraper.get(url, stream=True, timeout=10)
+                break
+            except requests.exceptions.ChunkedEncodingError:
+                continue
 
         match response.status_code:
             case 200:
@@ -105,6 +109,9 @@ def get_image_content(url: str, format: str) -> bytes:
 
     except PIL.UnidentifiedImageError:
         raise Exception("Что то не так с картинкой. Пропускаем картинку.")
+
+    except requests.exceptions.ChunkedEncodingError:
+        raise Exception("Ошибка при получении картинки. Пропускаем картинку.")
 
     except Exception as e:
         raise Exception(e)

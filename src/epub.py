@@ -29,35 +29,37 @@ class EpubHandler(Handler):
                 url = tag["src"]
                 img_filename = url.split("/")[-1]
                 img_uid = f"{chapter.id}_{img_filename}"
-                image = Image(
-                    uid=img_uid,
-                    extension=img_filename.split(".")[-1],
-                    content=get_image_content(url, img_filename.split(".")[-1]),
-                )
-                imageE = self._insert_image(image)
-                tags.append(imageE)
+                try:
+                    content = get_image_content(url, img_filename.split(".")[-1])
+                    image = Image(
+                        uid=img_uid,
+                        extension=img_filename.split(".")[-1],
+                        content=content,
+                    )
+                    imageE = self._insert_image(image) if self.with_images else ET.Element("span")
+                    tags.append(imageE)
+                except Exception as e:
+                    self.log_func("Ошибка: " + str(e))
+
                 continue
             tags.append(ET.fromstring(str(tag)))
 
         return tags
 
     def _insert_image(self, image: Image) -> ET.Element:
-        if self.with_images:
-            for item in self.book.items:
-                if isinstance(item, epub.EpubImage) and item.content == image.content:
-                    return ET.Element("img", attrib={"src": item.file_name})
+        for item in self.book.items:
+            if isinstance(item, epub.EpubImage) and item.content == image.content:
+                return ET.Element("img", attrib={"src": item.file_name})
 
-            self.book.add_item(
-                epub.EpubImage(
-                    uid=image.uid,
-                    file_name=image.static_url,
-                    media_type=image.media_type,
-                    content=image.content,
-                )
+        self.book.add_item(
+            epub.EpubImage(
+                uid=image.uid,
+                file_name=image.static_url,
+                media_type=image.media_type,
+                content=image.content,
             )
-            return ET.Element("img", attrib={"src": image.static_url})
-        else:
-            return ET.Element("span")
+        )
+        return ET.Element("img", attrib={"src": image.static_url})
 
     def _parse_marks(self, marks: list, tag: ET.Element, text: str, _index: int = 0) -> ET.Element:
         if _index >= len(marks):
@@ -111,7 +113,9 @@ class EpubHandler(Handler):
                 if not images:
                     return ET.Element("span")
                 img_name = tag.get("attrs").get("images")[-1].get("image")
-                return self._insert_image(images.get(img_name))
+                img = images.get(img_name)
+
+                return self._insert_image(img) if img and self.with_images else ET.Element("span")
 
             case "paragraph":
                 return self._parse_paragraph(tag)
@@ -145,10 +149,16 @@ class EpubHandler(Handler):
 
         for attachment in attachments:
             img_uid = f"{chapter.id}_{attachment.filename}"
+            try:
+                content = get_image_content(img_base_url + attachment.url, attachment.extension)
+            except Exception as e:
+                self.log_func("Ошибка: " + str(e))
+                continue
+
             images[attachment.name] = Image(
                 uid=img_uid,
                 extension=attachment.extension,
-                content=get_image_content(img_base_url + attachment.url, attachment.extension),
+                content=content,
             )
 
         for item in chapter.content:
@@ -223,9 +233,7 @@ class EpubHandler(Handler):
                 self.book.add_item(chapter)
 
                 self.log_func(
-                    f"Скачали {i:>{total_len}}: \
-                        Том {chapter_meta.volume:>{volume_len}}. \
-                            Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
+                    f"Скачали {i:>{total_len}}: Том {chapter_meta.volume:>{volume_len}}. Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
                 )
             else:
                 self.log_func("Пропускаем главу.")
