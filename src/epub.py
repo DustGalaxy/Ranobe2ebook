@@ -13,10 +13,10 @@ from src.api import get_chapter, get_image_content
 class EpubHandler(Handler):
     book: epub.EpubBook
     style_tags = {
-        "bold": ET.Element("b"),
-        "italic": ET.Element("i"),
-        "underline": ET.Element("ins"),
-        "strike": ET.Element("del"),
+        "bold": "b",
+        "italic": "i",
+        "underline": "ins",
+        "strike": "del",
     }
 
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
@@ -66,7 +66,8 @@ class EpubHandler(Handler):
             tag.text = text
             return tag
 
-        new_tag = self.style_tags.get(marks[_index].get("type"), ET.Element("span"))
+        style_type = self.style_tags.get(marks[_index].get("type"), "span")
+        new_tag = ET.Element(style_type)
         tag.append(self._parse_marks(marks, new_tag, text, _index + 1))
         return tag
 

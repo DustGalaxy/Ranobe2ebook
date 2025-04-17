@@ -52,10 +52,10 @@ class MyFictionBook2(MyFictionBook2dataclass):
 class FB2Handler(Handler):
     book: MyFictionBook2
     style_tags = {
-        "bold": ET.Element("strong"),
-        "italic": ET.Element("emphasis"),
-        "underline": ET.Element("style", attrib={"name": "underline"}),
-        "strike": ET.Element("strikethrough"),
+        "bold": "strong",
+        "italic": "emphasis",
+        "underline": "style",
+        "strike": "strikethrough",
     }
 
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
@@ -97,7 +97,10 @@ class FB2Handler(Handler):
             tag.text = text
             return tag
 
-        new_tag = self.style_tags.get(marks[_index].get("type"), ET.Element("span"))
+        style_type = self.style_tags.get(marks[_index].get("type"), "custom")
+        new_tag = ET.Element(style_type)
+        if new_tag.tag == "style":
+            new_tag.attrib = {"name": "underline"}
         tag.append(self._parse_marks(marks, new_tag, text, _index + 1))
         return tag
 
