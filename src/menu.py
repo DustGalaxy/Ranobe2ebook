@@ -29,9 +29,9 @@ from textual.widgets import (
 
 from textual_fspicker import SelectDirectory
 
-from src.config import config
+from src.config import config, VERSION
 from src.model import ChapterMeta, Handler, State
-from src.api import get_branchs, get_chapters_data, get_ranobe_data
+from src.api import get_branchs, get_chapters_data, get_latest_release, get_ranobe_data
 from src.utils import is_jwt, is_valid_url
 
 title = r"""
@@ -41,6 +41,15 @@ title = r"""
     |  _ < (_| | | | | (_) | |_) |  __/ |___ | || |_) |  / __/  |  __/ |_) | (_) | (_) |   < 
     |_| \_\__,_|_| |_|\___/|_.__/ \___|_____|___|____/  |_____|  \___|_.__/ \___/ \___/|_|\_\                                                                                      
         """
+
+
+def update_available() -> bool:
+    """Проверяет доступность новой версии."""
+    try:
+        last_ver = get_latest_release("DustGalaxy", "Ranobe2ebook")
+        return last_ver != VERSION
+    except Exception as e:
+        return False
 
 
 class Ranobe2ebook(App):
@@ -56,6 +65,7 @@ class Ranobe2ebook(App):
     ebook: Handler = None
     cd_error_link: int = 0
     cd_error_dir: int = 0
+    new_version = False
 
     def __init__(
         self,
@@ -70,7 +80,14 @@ class Ranobe2ebook(App):
         Binding(
             key="i",
             action="open_issue_link()",
-            description="Нашли ошибку?",
+            key_display="i",
+            description="Нашли ошибку? ↗",
+        ),
+        Binding(
+            key="u",
+            action="open_latest_version()",
+            key_display="u",
+            description="Доступно обновление! ↗" if update_available() else "Детали версии ↗",
         ),
     ]
 
@@ -79,7 +96,7 @@ class Ranobe2ebook(App):
         pass
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True, name="RanobeLIB 2 ebook")
+        yield Header(show_clock=True, name=f"RanobeLIB 2 ebook {VERSION}")
         yield Footer()
 
         with Vertical():
@@ -176,6 +193,9 @@ class Ranobe2ebook(App):
 
     def action_open_issue_link(self) -> None:
         webbrowser.open("https://github.com/DustGalaxy/RanobeLib2ebook/issues")
+
+    def action_open_latest_version(self) -> None:
+        webbrowser.open("https://github.com/DustGalaxy/RanobeLib2ebook/releases/latest")
 
     @on(Input.Changed, "#input_link")
     def show_invalid_reasons(self, event: Input.Changed) -> None:

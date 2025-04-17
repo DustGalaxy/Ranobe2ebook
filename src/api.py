@@ -12,6 +12,16 @@ from src.utils import is_html, is_url
 BASE_API_URL = "https://api2.mangalib.me/api"
 
 
+def get_latest_release(owner, repo):
+    url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+    response = requests.get(url)
+    if response.ok:
+        data = response.json()
+        return data["tag_name"]
+    else:
+        raise Exception(f"Ошибка запроса: {response.status_code} - {response.text}")
+
+
 def get_branchs(ranobe_id: str) -> dict:
     url = f"{BASE_API_URL}/branches/{ranobe_id}?team_defaults=1"
 
