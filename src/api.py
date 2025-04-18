@@ -1,4 +1,5 @@
 import io
+import time
 
 from PIL import Image
 import PIL
@@ -9,7 +10,16 @@ from src.config import config
 from src.model import Attachment, ChapterData, ChapterMeta
 from src.utils import is_html, is_url
 
-BASE_API_URL = "https://api2.mangalib.me/api"
+
+def get_base_api_url() -> str:
+    response = requests.get(
+        f"https://gist.githubusercontent.com/DustGalaxy/958d8a9fe76d7253d1511d99d180d1c5.txt?nocache={int(time.time())}"
+    )
+    if response.status_code == 200:
+        return str(response.content.decode("utf-8")).strip()
+
+
+BASE_API_URL = get_base_api_url()
 
 
 def get_latest_release(owner, repo):
