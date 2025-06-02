@@ -1,5 +1,5 @@
 from src.model import Config
 
-VERSION = "v2.1.2"
+VERSION = "v2.2.1"
 
 config = Config(token="")

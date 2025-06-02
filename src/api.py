@@ -103,7 +103,6 @@ def get_image_content(url: str, format: str) -> bytes:
 
         for _ in range(3):
             try:
-                # Получаем картинку по ссылке
                 response = scraper.get(url, stream=True, timeout=10)
                 break
             except requests.exceptions.ChunkedEncodingError:

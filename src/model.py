@@ -72,7 +72,7 @@ class Handler(ABC):
 
     with_images: bool
 
-    style_tags: dict[str, ET.Element] = field(default_factory=dict)
+    style_tags: dict[str, str] = field(default_factory=dict)
 
     def __init__(self, log_func: Callable, progress_bar_step: Callable) -> None:
         self.log_func = log_func
