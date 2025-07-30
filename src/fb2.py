@@ -21,10 +21,6 @@ class MyFictionBook2dataclass(FictionBook2dataclass.FictionBook2dataclass):
 class MyFB2Builder(FB2Builder):
     book: MyFictionBook2dataclass
 
-    def __init__(self):
-        super().__init__()
-        self.book = MyFictionBook2dataclass()
-
     def _AddBody(self, root: ET.Element) -> None:
         if len(self.book.chapters):
             bodyElement = ET.SubElement(root, "body")
@@ -313,7 +309,10 @@ class FB2Handler(Handler):
         book.documentInfo.programUsed = "Ranobe2ebook"
         book.customInfos = ["meta", "rating"]
         cover_url = ranobe_data.get("cover").get("default")
-        book.titleInfo.coverPageImages = [get_image_content(cover_url, cover_url.split(".")[-1])]
+        try:
+            book.titleInfo.coverPageImages = [get_image_content(cover_url, cover_url.split(".")[-1])]
+        except Exception as e:
+            self.log_func(f"Не удалось скачать обложку: {e}")
 
         self.log_func("Подготовили книгу.")
         self.book = book

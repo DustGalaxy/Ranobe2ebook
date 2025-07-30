@@ -19,10 +19,6 @@ class EpubHandler(Handler):
         "strike": "del",
     }
 
-    def __init__(self, *args, **kwargs):
-        super(EpubHandler, self).__init__(*args, **kwargs)
-        self.book = epub.EpubBook()
-
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
         soup = BeautifulSoup(chapter.content, "html.parser")
         tags: list[ET.Element] = []
@@ -284,7 +280,11 @@ class EpubHandler(Handler):
             book.add_author(author.get("name"))
 
         cover_url = ranobe_data.get("cover").get("default")
-        book.set_cover(cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1]), False)
+        self.log_func(f"Скачиваем обложку: {cover_url}")
+        try:
+            book.set_cover(cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1]), False)
+        except Exception as e:
+            self.log_func(f"Не удалось скачать обложку: {e}")
 
         book.add_metadata(
             "DC",

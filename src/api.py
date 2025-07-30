@@ -45,18 +45,20 @@ def get_branchs(ranobe_id: str) -> dict | None:
 
 def get_ranobe_data(name: str) -> dict | None:
     url_base = f"{BASE_API_URL}/manga/{name}?"
-    url = url_base + "&".join([
-        f"fields[]={item}"
-        for item in [
-            "authors",
-            "summary",
-            "genres",
-            "chap_count",
-            "releaseDate",
-            "franchise",
-            "rate",
+    url = url_base + "&".join(
+        [
+            f"fields[]={item}"
+            for item in [
+                "authors",
+                "summary",
+                "genres",
+                "chap_count",
+                "releaseDate",
+                "franchise",
+                "rate",
+            ]
         ]
-    ])
+    )
     response = requests.get(
         url,
         headers={
@@ -90,11 +92,21 @@ def get_chapters_data(name: str) -> list[ChapterMeta] | None:
 
 
 def get_image_content(url: str, format: str) -> bytes | None:
+    headers = {
+        "Client-Time-Zone": "Europe/Kyiv",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Host": "cover.imglib.info",
+        "Origin": "https://ranobelib.me",
+        "Referer": "https://ranobelib.me/",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "cross-site",
+        "Sec-Gpc": "1",
+        "Site-Id": "3",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
+    }
     try:
-        scraper = cloudscraper.create_scraper(
-            delay=15,
-            browser={"browser": "firefox", "platform": "windows", "mobile": False},
-        )
         if format.upper() == "JPG":
             format = "JPEG"
 
@@ -103,7 +115,7 @@ def get_image_content(url: str, format: str) -> bytes | None:
 
         for _ in range(3):
             try:
-                response = scraper.get(url, stream=True, timeout=10)
+                response = requests.get(url, headers=headers, stream=True, timeout=10)
                 break
             except requests.exceptions.ChunkedEncodingError:
                 continue

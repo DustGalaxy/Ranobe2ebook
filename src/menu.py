@@ -280,6 +280,7 @@ class Ranobe2ebook(App):
 
         log.write_line("Получаем данные о ранобе...")
         self.ranobe_data = get_ranobe_data(self.slug)
+
         if self.ranobe_data is None:
             log.write_line("Не удалось получить данные о ранобе.")
             log.write_line("Либо такого ранобє нету, либо для него требуется авторизация.")
@@ -296,10 +297,12 @@ class Ranobe2ebook(App):
 
         options: list[tuple[str, str]] = []
         for i, branch in enumerate(branchs):
-            options.append((
-                f"{branch.get('name')}. Переводчики: {' & '.join([team.get('name') for team in branch.get('teams')])}",
-                str(branch.get("id")),
-            ))
+            options.append(
+                (
+                    f"{branch.get('name')}. Переводчики: {' & '.join([team.get('name') for team in branch.get('teams')])}",
+                    str(branch.get("id")),
+                )
+            )
 
         if len(options) == 0:
             options = [("Main branch", "0")]
@@ -325,10 +328,12 @@ class Ranobe2ebook(App):
         chap_len = len(str(max(self.chapters_data, key=lambda x: len(str(x.number))).number))
         volume_len = len(str(self.chapters_data[-1].volume))
 
-        self.query_one("#chapter_list").write_lines([
-            f"{i:>{total_len}}: Том {chapter.volume:>{volume_len}}. Глава {chapter.number:>{chap_len}}. {chapter.name}"
-            for i, chapter in enumerate(self.chapters_data, 1)
-        ])
+        self.query_one("#chapter_list").write_lines(  # pyright: ignore[reportAttributeAccessIssue]
+            [
+                f"{i:>{total_len}}: Том {chapter.volume:>{volume_len}}. Глава {chapter.number:>{chap_len}}. {chapter.name}"
+                for i, chapter in enumerate(self.chapters_data, 1)
+            ]
+        )
 
         log.write_line("\nГотовы к скачиванию!")
 
@@ -381,7 +386,7 @@ class Ranobe2ebook(App):
         self.ebook.with_images = add_images
         try:
             self.ebook.make_book(self.ranobe_data)
-
+            log.write_line("Создали книгу")
         except Exception as e:
             log.write_line(str(e))
 
