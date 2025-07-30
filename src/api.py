@@ -11,7 +11,7 @@ from src.model import Attachment, ChapterData, ChapterMeta
 from src.utils import is_html, is_url
 
 
-def get_base_api_url() -> str:
+def get_base_api_url() -> str | None:
     response = requests.get(
         f"https://gist.githubusercontent.com/DustGalaxy/958d8a9fe76d7253d1511d99d180d1c5.txt?nocache={int(time.time())}"
     )
@@ -32,7 +32,7 @@ def get_latest_release(owner, repo):
         raise Exception(f"Ошибка запроса: {response.status_code} - {response.text}")
 
 
-def get_branchs(ranobe_id: str) -> dict:
+def get_branchs(ranobe_id: str) -> dict | None:
     url = f"{BASE_API_URL}/branches/{ranobe_id}?team_defaults=1"
 
     response = requests.get(url)
@@ -43,7 +43,7 @@ def get_branchs(ranobe_id: str) -> dict:
     return response.json().get("data")
 
 
-def get_ranobe_data(name: str) -> dict:
+def get_ranobe_data(name: str) -> dict | None:
     url_base = f"{BASE_API_URL}/manga/{name}?"
     url = url_base + "&".join([
         f"fields[]={item}"
@@ -72,7 +72,7 @@ def get_ranobe_data(name: str) -> dict:
     return response.json().get("data")
 
 
-def get_chapters_data(name: str) -> list[ChapterMeta]:
+def get_chapters_data(name: str) -> list[ChapterMeta] | None:
     url = f"{BASE_API_URL}/manga/{name}/chapters"
 
     response = requests.get(
@@ -89,7 +89,7 @@ def get_chapters_data(name: str) -> list[ChapterMeta]:
     return chapters
 
 
-def get_image_content(url: str, format: str) -> bytes:
+def get_image_content(url: str, format: str) -> bytes | None:
     try:
         scraper = cloudscraper.create_scraper(
             delay=15,

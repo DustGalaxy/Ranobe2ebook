@@ -1,31 +1,36 @@
-[tool.poetry]
+[project]
 name = "ranobelib-parser"
 version = "1.0"
 description = ""
-authors = ["Midnull"]
-license = "MIT"
-readme = "README.md"
+authors = [{ name="Midnull" }] # Авторы теперь должны быть списком таблиц
+license = "MIT" # Лицензия
+readme = "README.md" # Путь к файлу README
+requires-python = ">=3.12,<3.13" # Эквивалент python = "^3.12"
 
-[tool.poetry.dependencies]
-python = "^3.12"
-requests = "^2.32.3"
-iso-639 = {git = "https://github.com/noumar/iso639.git", tag = "0.4.5"}
-fb2 = "^0.1.7"
-setuptools = "^71.1.0"
-beautifulsoup4 = "^4.12.3"
-cloudscraper = "^1.2.71"
-pillow = "^10.4.0"
-ebooklib = "^0.18"
-pyperclip = "^1.9.0"
-pyjwt = "^2.9.0"
-textual = "1.0.0"
-textual-fspicker = "^0.4.0"
+dependencies = [
+    "requests~=2.32", # PEP 440 style: ~= для совместимых версий (например, 2.32.x)
+    # Обратите внимание на git-зависимость. В [project.dependencies] прямые ссылки на git-репозитории
+    # обычно указываются как URL с `@`.
+    "iso-639 @ git+https://github.com/noumar/iso639.git@0.4.5",
+    "fb2~=0.1",
+    "setuptools~=71.1", # Это не build-dependency, а обычная зависимость, если она нужна вашему коду
+    "beautifulsoup4~=4.12",
+    "cloudscraper~=1.2",
+    "pillow~=10.4",
+    "ebooklib~=0.18",
+    "pyperclip~=1.9",
+    "pyjwt~=2.9",
+    "textual==1.0.0", # Если нужна точная версия
+    "textual-fspicker~=0.4",
+]
 
-[tool.ruff]
+# Секция build-system остается, но возможно, ее стоит обновить на более стандартный
+# бэкенд, если вы полностью уходите от Poetry для сборки вашего проекта.
+# Однако для `uv sync` это менее критично, чем наличие [project] таблицы.
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"] # Обновлено до стандартного
+build-backend = "setuptools.build_meta" # Стандартный build-backend
 
+[tool.ruff] # Эту секцию можно оставить без изменений, так как она относится к ruff
 line-length = 120
 target-version = "py312"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

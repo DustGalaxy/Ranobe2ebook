@@ -79,38 +79,6 @@ class Handler(ABC):
         self.progress_bar_step = progress_bar_step
 
     @abstractmethod
-    def _insert_image(self, image: Image) -> ET.Element:
-        pass
-
-    @abstractmethod
-    def _parse_list(self, *args, **kwargs) -> ET.Element:
-        pass
-
-    @abstractmethod
-    def _parse_marks(self, marks: list, tag: ET.Element, text: str, index: int = 0) -> ET.Element:
-        pass
-
-    @abstractmethod
-    def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
-        pass
-
-    @abstractmethod
-    def _tag_parser(self, tag: dict, **kwargs) -> ET.Element:
-        pass
-
-    @abstractmethod
-    def _parse_doc(self, chapter: ChapterData) -> list[ET.Element]:
-        pass
-
-    @abstractmethod
-    def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
-        pass
-
-    @abstractmethod
-    def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> Any | None:
-        pass
-
-    @abstractmethod
     def fill_book(
         self, slug: str, priority_branch: str, chapters_data: list[ChapterMeta], worker, delay: float = 0.5
     ) -> None:

@@ -21,6 +21,10 @@ class MyFictionBook2dataclass(FictionBook2dataclass.FictionBook2dataclass):
 class MyFB2Builder(FB2Builder):
     book: MyFictionBook2dataclass
 
+    def __init__(self):
+        super().__init__()
+        self.book = MyFictionBook2dataclass()
+
     def _AddBody(self, root: ET.Element) -> None:
         if len(self.book.chapters):
             bodyElement = ET.SubElement(root, "body")

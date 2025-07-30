@@ -19,6 +19,10 @@ class EpubHandler(Handler):
         "strike": "del",
     }
 
+    def __init__(self, *args, **kwargs):
+        super(EpubHandler, self).__init__(*args, **kwargs)
+        self.book = epub.EpubBook()
+
     def _parse_html(self, chapter: ChapterData) -> list[ET.Element]:
         soup = BeautifulSoup(chapter.content, "html.parser")
         tags: list[ET.Element] = []
