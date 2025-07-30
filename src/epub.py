@@ -280,7 +280,6 @@ class EpubHandler(Handler):
             book.add_author(author.get("name"))
 
         cover_url = ranobe_data.get("cover").get("default")
-        self.log_func(f"Скачиваем обложку: {cover_url}")
         try:
             book.set_cover(cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1]), False)
         except Exception as e:
