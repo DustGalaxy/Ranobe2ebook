@@ -91,7 +91,7 @@ def get_chapters_data(name: str) -> list[ChapterMeta] | None:
     return chapters
 
 
-def get_image_content(url: str, format: str) -> bytes | None:
+def get_image_content(url: str, format: str, cover: bool = False) -> bytes | None:
     headers = {
         "Client-Time-Zone": "Europe/Kyiv",
         "Connection": "keep-alive",
@@ -115,7 +115,12 @@ def get_image_content(url: str, format: str) -> bytes | None:
 
         for _ in range(3):
             try:
-                response = requests.get(url, headers=headers, stream=True, timeout=10)
+                if cover:
+                    response = requests.get(url, headers=headers, stream=True, timeout=10)
+                else:
+                    scraper = cloudscraper.create_scraper()
+                    response = scraper.get(url, stream=True, timeout=10)
+
                 break
             except requests.exceptions.ChunkedEncodingError:
                 continue

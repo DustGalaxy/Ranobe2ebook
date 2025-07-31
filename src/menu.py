@@ -62,7 +62,7 @@ class Ranobe2ebook(App):
     start: int
     amount: int
     state: State = State()
-    ebook: Handler = None
+    ebook: Handler = None  # type: ignore
     cd_error_link: int = 0
     cd_error_dir: int = 0
     new_version = False
@@ -199,7 +199,7 @@ class Ranobe2ebook(App):
 
     @on(Input.Changed, "#input_link")
     def show_invalid_reasons(self, event: Input.Changed) -> None:
-        if not event.validation_result.is_valid:
+        if not event.validation_result.is_valid:  # type: ignore
             if self.cd_error_link == 0:
                 self.notify("Неправильная ссылка", severity="error", timeout=2)
                 self.cd_error_link = 7
@@ -212,7 +212,7 @@ class Ranobe2ebook(App):
 
     @on(Input.Changed, "#input_save_dir")
     def show_dir(self, event: Input.Changed) -> None:
-        if not event.validation_result.is_valid:
+        if not event.validation_result.is_valid:  # type: ignore
             if self.cd_error_dir == 0:
                 self.notify("Неправильный путь", severity="error", timeout=2)
                 self.cd_error_dir = 7
@@ -226,11 +226,11 @@ class Ranobe2ebook(App):
 
     @on(Input.Changed, "#input_start")
     def show_from_chapter(self, event: Input.Changed) -> None:
-        if event.validation_result.is_valid:
+        if event.validation_result.is_valid:  # type: ignore
             start: int = int(event.value)
-            end: Input = self.query_one("#input_end")
+            end: Input = self.query_one("#input_end")  # type: ignore
 
-            p_bar: ProgressBar = self.query_one("#download_progress")
+            p_bar: ProgressBar = self.query_one("#download_progress")  # type: ignore
 
             if end.value not in ("", None):
                 start = start - 1
@@ -241,45 +241,45 @@ class Ranobe2ebook(App):
                 if len_tmp != 0:
                     p_bar.update(total=len_tmp)
                     self.start = start
-                    self.query_one("#chapters_count").update(
+                    self.query_one("#chapters_count").update(  # type: ignore
                         f"С: Том {tmp[0].volume}. Глава {tmp[0].number}. По: Том {tmp[-1].volume}. Глава {tmp[-1].number}. - глав: {len_tmp}."
                     )
 
     @on(Input.Changed, "#input_end")
     def show_to_chapter(self, event: Input.Changed) -> None:
-        if event.validation_result.is_valid:
+        if event.validation_result.is_valid:  # type: ignore
             end: int = int(event.value)
-            start: Input = self.query_one("#input_start")
+            start: Input = self.query_one("#input_start")  # type: ignore
 
-            p_bar: ProgressBar = self.query_one("#download_progress")
+            p_bar: ProgressBar = self.query_one("#download_progress")  # type: ignore
 
             if start.value not in ("", None):
-                start = int(start.value)
-                start = start - 1
+                start = int(start.value)  # type: ignore
+                start = start - 1  # type: ignore
                 amount = end
 
-                tmp = self.chapters_data[start : start + amount]
+                tmp = self.chapters_data[start : start + amount]  # type: ignore
                 len_tmp = len(tmp)
 
                 if len_tmp != 0:
                     p_bar.update(total=len_tmp)
                     self.amount = amount
-                    self.query_one("#chapters_count").update(
+                    self.query_one("#chapters_count").update(  # type: ignore
                         f"С: Том {tmp[0].volume}. Глава {tmp[0].number}. По: Том {tmp[-1].volume}. Глава {tmp[-1].number}. - глав: {len_tmp}."
                     )
 
     @on(Button.Pressed, "#check_link")
     def check_link(self, event: Button.Pressed) -> None:
-        log: Log = self.query_one("#log")
+        log: Log = self.query_one("#log")  # type: ignore
 
         self.dev_print("Check link")
         self.clear_all()
 
-        url = urlparse(self.query_one("#input_link").value)
+        url = urlparse(self.query_one("#input_link").value)  # type: ignore
         self.slug = url.path.split("/")[-1]
 
         log.write_line("Получаем данные о ранобе...")
-        self.ranobe_data = get_ranobe_data(self.slug)
+        self.ranobe_data = get_ranobe_data(self.slug)  # type: ignore
 
         if self.ranobe_data is None:
             log.write_line("Не удалось получить данные о ранобе.")
@@ -288,7 +288,7 @@ class Ranobe2ebook(App):
             return
         log.write_line("Получили данные о ранобе.")
         log.write_line("\nПолучаем список ветвей перевода...")
-        branchs = get_branchs(self.ranobe_data.get("id"))
+        branchs = get_branchs(self.ranobe_data.get("id"))  # type: ignore
 
         if branchs is None or len(branchs) == 0:
             log.write_line("Не удалось получить список ветвей перевода. \nБудет использоватся главная ветвь.")
@@ -296,7 +296,7 @@ class Ranobe2ebook(App):
             log.write_line("Получили список ветвей перевода.")
 
         options: list[tuple[str, str]] = []
-        for i, branch in enumerate(branchs):
+        for i, branch in enumerate(branchs):  # type: ignore
             options.append(
                 (
                     f"{branch.get('name')}. Переводчики: {' & '.join([team.get('name') for team in branch.get('teams')])}",
@@ -306,14 +306,14 @@ class Ranobe2ebook(App):
 
         if len(options) == 0:
             options = [("Main branch", "0")]
-            self.query_one("#branch_list").set_options(options)
-            self.query_one("#branch_list").value = options[0][1]
+            self.query_one("#branch_list").set_options(options)  # type: ignore
+            self.query_one("#branch_list").value = options[0][1]  # type: ignore
         else:
-            self.query_one("#branch_list").set_options(options)
-            self.query_one("#branch_list").value = options[0][1]
+            self.query_one("#branch_list").set_options(options)  # type: ignore
+            self.query_one("#branch_list").value = options[0][1]  # type: ignore
 
         log.write_line("\nПолучаем список глав...")
-        self.chapters_data = get_chapters_data(self.slug)
+        self.chapters_data = get_chapters_data(self.slug)  # type: ignore
         if self.chapters_data is None:
             log.write_line("Не удалось получить список глав.")
             return
@@ -321,8 +321,8 @@ class Ranobe2ebook(App):
         self.state.is_data_loaded = True
         log.write_line("Получили список глав.")
 
-        self.query_one("#input_start").value = "1"
-        self.query_one("#input_end").value = str(len(self.chapters_data))
+        self.query_one("#input_start").value = "1"  # type: ignore
+        self.query_one("#input_end").value = str(len(self.chapters_data))  # type: ignore
 
         total_len = len(str(len(self.chapters_data)))
         chap_len = len(str(max(self.chapters_data, key=lambda x: len(str(x.number))).number))
@@ -338,8 +338,8 @@ class Ranobe2ebook(App):
         log.write_line("\nГотовы к скачиванию!")
 
         self.state.is_chapters_selected = True
-        dir_radio_set: RadioSet = self.query_one("#save_dir")
-        if dir_radio_set.pressed_button.name == "other_folder" and not self.dir:
+        dir_radio_set: RadioSet = self.query_one("#save_dir")  # type: ignore
+        if dir_radio_set.pressed_button.name == "other_folder" and not self.dir:  # type: ignore
             self.state.is_dir_selected = False
         else:
             self.state.is_dir_selected = True
@@ -360,29 +360,29 @@ class Ranobe2ebook(App):
 
     @on(Button.Pressed, "#clear_link")
     def clear_link(self, event: Button.Pressed) -> None:
-        self.query_one("#input_link").value = ""
+        self.query_one("#input_link").value = ""  # type: ignore
         self.notify("Ссылка очищенна", timeout=2)
 
     @on(Button.Pressed, "#paste_link")
     def paste_link(self, event: Button.Pressed) -> None:
         clipboard_content = pyperclip.paste()
         if is_valid_url(clipboard_content):
-            self.query_one("#input_link").value = clipboard_content
+            self.query_one("#input_link").value = clipboard_content  # type: ignore
             self.notify("Ссылка вставленна", timeout=2)
         else:
             self.notify("Некоректная ссылка", severity="error", timeout=2)
 
     @work(name="make_ebook_worker", exclusive=True, thread=True)
     async def make_ebook_worker(self) -> None:
-        log: Log = self.query_one("#log")
-        p_bar: ProgressBar = self.query_one("#download_progress")
+        log: Log = self.query_one("#log")  # type: ignore
+        p_bar: ProgressBar = self.query_one("#download_progress")  # type: ignore
 
-        format = self.query_one("#format").pressed_button.name
-        add_images = self.query_one("#add_images").value
+        format = self.query_one("#format").pressed_button.name  # type: ignore
+        add_images = self.query_one("#add_images").value  # type: ignore
 
         Handler_: Handler = self.handlers[format]
 
-        self.ebook = Handler_(log_func=log.write_line, progress_bar_step=p_bar.advance)
+        self.ebook = Handler_(log_func=log.write_line, progress_bar_step=p_bar.advance)  # type: ignore
         self.ebook.with_images = add_images
         try:
             self.ebook.make_book(self.ranobe_data)
@@ -392,7 +392,7 @@ class Ranobe2ebook(App):
 
     @work(name="fill_ebook_worker", exclusive=True, thread=True)
     async def fill_ebook_worker(self) -> None:
-        log: Log = self.query_one("#log")
+        log: Log = self.query_one("#log")  # type: ignore
         self.query_one("#stop_and_save").disabled = False
         try:
             worker = get_current_worker()
@@ -405,7 +405,7 @@ class Ranobe2ebook(App):
 
     @work(name="end_ebook_worker", exclusive=True, thread=True)
     async def end_ebook_worker(self) -> None:
-        log: Log = self.query_one("#log")
+        log: Log = self.query_one("#log")  # type: ignore
         self.query_one("#stop_and_save").disabled = True
         try:
             self.ebook.end_book()
@@ -415,7 +415,7 @@ class Ranobe2ebook(App):
 
     @work(name="save_ebook_worker", exclusive=True, thread=True)
     async def save_ebook_worker(self) -> None:
-        log: Log = self.query_one("#log")
+        log: Log = self.query_one("#log")  # type: ignore
 
         try:
             log.write_line("\nСохраняем книгу...")
@@ -461,17 +461,17 @@ class Ranobe2ebook(App):
     def branch_list(self, event: Select.Changed) -> None:
         if event.select.value != Select.BLANK:
             self.state.is_branch_selected = True
-            self.priority_branch = event.select.value
-            self.dev_print(event.select.value)
+            self.priority_branch = event.select.value  # type: ignore
+            self.dev_print(event.select.value)  # type: ignore
 
     @on(RadioSet.Changed)
     def set_option(self, event: RadioSet.Changed) -> None:
         match event.radio_set.id:
             case "save_dir":
-                self.dev_print(event.radio_set.pressed_button.label)
-                input_save_dir: Input = self.query_one("#input_save_dir")
+                self.dev_print(event.radio_set.pressed_button.label)  # type: ignore
+                input_save_dir: Input = self.query_one("#input_save_dir")  # type: ignore
                 input_save_dir.disabled = True
-                match event.radio_set.pressed_button.name:
+                match event.radio_set.pressed_button.name:  # type: ignore
                     case "desktop":
                         self.state.is_dir_selected = True
                         self.dir = os.path.normpath(os.path.expanduser("~/Desktop"))
@@ -486,7 +486,7 @@ class Ranobe2ebook(App):
                         self.dev_print(self.dir)
                     case "other_folder":
                         self.state.is_dir_selected = False
-                        self.dir = None
+                        self.dir = None  # type: ignore
                         input_save_dir.disabled = False
 
                         self.push_screen(
@@ -500,13 +500,13 @@ class Ranobe2ebook(App):
                         )
 
     def show_selected(self, to_show: Path | None) -> None:
-        self.query_one("#input_save_dir").value = "" if to_show is None else str(to_show)
+        self.query_one("#input_save_dir").value = "" if to_show is None else str(to_show)  # type: ignore
         self.dev_print("Cancelled" if to_show is None else str(to_show))
 
     def clear_all(self) -> None:
-        self.query_one("#download_progress").update(total=None, progress=0)
-        self.query_one("#chapter_list").clear()
-        self.query_one("#branch_list").clear()
-        self.query_one("#branch_list").set_options([])
-        self.query_one("#input_start").clear()
-        self.query_one("#input_end").clear()
+        self.query_one("#download_progress").update(total=None, progress=0)  # type: ignore
+        self.query_one("#chapter_list").clear()  # type: ignore
+        self.query_one("#branch_list").clear()  # type: ignore
+        self.query_one("#branch_list").set_options([])  # type: ignore
+        self.query_one("#input_start").clear()  # type: ignore
+        self.query_one("#input_end").clear()  # type: ignore

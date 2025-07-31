@@ -209,7 +209,7 @@ class EpubHandler(Handler):
 
     def fill_book(
         self,
-        name: str,
+        slug: str,
         priority_branch: str,
         chapters_data: list[ChapterMeta],
         worker,
@@ -229,7 +229,7 @@ class EpubHandler(Handler):
             if worker.is_cancelled:
                 break
 
-            chapter = self._make_chapter(name, priority_branch, chapter_meta)
+            chapter = self._make_chapter(slug, priority_branch, chapter_meta)
             if chapter:
                 self.book.add_item(chapter)
 
@@ -248,10 +248,10 @@ class EpubHandler(Handler):
 
         self.log_func(f"Книга {self.book.title} сохранена в формате Epub.")
         self.log_func(f"В каталоге {dir} создана книга {safe_title}.epub.")
-        self.book = None
+        self.book = None  # type: ignore
 
     def end_book(self) -> None:
-        self.book.toc = (epub.Section("1"),) + tuple(
+        self.book.toc = (epub.Section("1"),) + tuple(  # type: ignore
             chap for chap in self.book.items if isinstance(chap, epub.EpubHtml)
         )
 
@@ -276,21 +276,23 @@ class EpubHandler(Handler):
         book.set_title(title)
 
         book.set_language("ru")
-        for author in ranobe_data.get("authors"):
+        for author in ranobe_data.get("authors"):  # type: ignore
             book.add_author(author.get("name"))
 
-        cover_url = ranobe_data.get("cover").get("default")
+        cover_url = ranobe_data.get("cover").get("default")  # type: ignore
         try:
-            book.set_cover(cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1]), False)
+            book.set_cover(
+                cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1], True), False
+            )
         except Exception as e:
             self.log_func(f"Не удалось скачать обложку: {e}")
 
         book.add_metadata(
             "DC",
             "subject",
-            " ".join([genre.get("name") for genre in ranobe_data.get("genres")]),
+            " ".join([genre.get("name") for genre in ranobe_data.get("genres")]),  # type: ignore
         )
-        book.add_metadata("DC", "description", ranobe_data.get("summary").replace("\n", "<p>"))
+        book.add_metadata("DC", "description", ranobe_data.get("summary").replace("\n", "<p>"))  # type: ignore
         book.add_metadata("DC", "contributor", "Ranobe2ebook")
         book.add_metadata("DC", "source", "ranobelib.me")
         book.add_metadata(
@@ -299,7 +301,7 @@ class EpubHandler(Handler):
             "",
             {
                 "name": "series",
-                "content": ranobe_data.get("franchise")[0].get("name")
+                "content": ranobe_data.get("franchise")[0].get("name")  # type: ignore
                 if ranobe_data.get("franchise")
                 else ranobe_data.get("name"),
             },

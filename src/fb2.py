@@ -310,7 +310,7 @@ class FB2Handler(Handler):
         book.customInfos = ["meta", "rating"]
         cover_url = ranobe_data.get("cover").get("default")
         try:
-            book.titleInfo.coverPageImages = [get_image_content(cover_url, cover_url.split(".")[-1])]
+            book.titleInfo.coverPageImages = [get_image_content(cover_url, cover_url.split(".")[-1], True)]
         except Exception as e:
             self.log_func(f"Не удалось скачать обложку: {e}")
 
