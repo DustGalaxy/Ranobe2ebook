@@ -11,7 +11,7 @@ from src.epub import EpubHandler
 def setup_logging(logs_dir: Path) -> None:
     logs_dir.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
-        filename=logs_dir / "app.log",
+        filename=logs_dir / "ranobe2ebook.log",
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",

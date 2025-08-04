@@ -24,7 +24,7 @@ class EpubHandler(Handler):
         tags: list[ET.Element] = []
         for tag in soup.find_all(recursive=False):
             if tag.name == "p":
-                tag.attrs.pop("data-paragraph-index")
+                tag.attrs.pop("data-paragraph-index", None)
             if tag.name == "img":
                 url = tag["src"]
                 img_filename = url.split("/")[-1]
