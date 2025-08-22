@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, field
 from xml.etree import ElementTree as ET
 
-from FB2 import FictionBook2dataclass
+from FB2 import FictionBook2dataclass, SimpleChapter, Image as FB2Image
 from FB2.FB2Builder import FB2Builder
 from bs4 import BeautifulSoup
 
@@ -25,15 +25,15 @@ class MyFB2Builder(FB2Builder):
         if len(self.book.chapters):
             bodyElement = ET.SubElement(root, "body")
             for chapter in self.book.chapters:
-                bodyElement.append(self.BuildSectionFromChapter(chapter))
+                bodyElement.append(self._BuildSectionFromChapter(chapter))
 
     def _AddBinaries(self, root: ET.Element) -> None:
         if self.book.titleInfo.coverPageImages is not None:
             for i, coverImage in enumerate(self.book.titleInfo.coverPageImages):
-                self._AddBinary(root, f"title-info-cover_{i}", "image/jpeg", coverImage)
+                self._AddBinary(root, coverImage.uid, coverImage.media_type, coverImage.content)
         if self.book.sourceTitleInfo and self.book.sourceTitleInfo.coverPageImages:
             for i, coverImage in enumerate(self.book.sourceTitleInfo.coverPageImages):
-                self._AddBinary(root, f"src-title-info-cover#{i}", "image/jpeg", coverImage)
+                self._AddBinary(root, coverImage.uid, coverImage.media_type, coverImage.content)
         if len(self.book.images) > 0:
             for image in self.book.images:
                 self._AddBinary(root, image.uid, image.media_type, image.content)
@@ -208,9 +208,7 @@ class FB2Handler(Handler):
             tags.append(tag)
         return tags
 
-    def _make_chapter(
-        self, slug: str, priority_branch: str, chapter_meta: ChapterMeta
-    ) -> tuple[str, list[ET.Element]] | None:
+    def _make_chapter(self, slug: str, priority_branch: str, chapter_meta: ChapterMeta) -> SimpleChapter | None:
         try:
             chapter: ChapterData = get_chapter(
                 slug,
@@ -222,7 +220,7 @@ class FB2Handler(Handler):
             self.log_func("Ошибка: " + str(e))
             return None
 
-        tags: list[ET.Element] = None
+        tags: list[ET.Element] = []
 
         if chapter.type == "html":
             tags = self._parse_html(chapter)
@@ -243,7 +241,7 @@ class FB2Handler(Handler):
         clean_elements = [ET.fromstring(tag) for tag in clean_tags]
 
         chapter_title = f"Том {chapter_meta.volume}. Глава {chapter_meta.number}. {chapter_meta.name}"
-        return (chapter_title, clean_elements)
+        return SimpleChapter(chapter_title, content=clean_elements)
 
     def fill_book(
         self,
@@ -267,7 +265,7 @@ class FB2Handler(Handler):
             if worker.is_cancelled:
                 break
 
-            chapter = self._make_chapter(slug, priority_branch, chapter_meta)
+            chapter: SimpleChapter | None = self._make_chapter(slug, priority_branch, chapter_meta)
 
             if chapter:
                 self.book.chapters.append(chapter)
@@ -310,7 +308,10 @@ class FB2Handler(Handler):
         book.customInfos = ["meta", "rating"]
         cover_url = ranobe_data.get("cover").get("default")
         try:
-            book.titleInfo.coverPageImages = [get_image_content(cover_url, cover_url.split(".")[-1], True)]
+            cover_image = get_image_content(cover_url, cover_url.split(".")[-1], True)
+            book.titleInfo.coverPageImages = [
+                FB2Image(content=cover_image, media_type=f"image/{cover_url.split('.')[-1]}")
+            ]
         except Exception as e:
             self.log_func(f"Не удалось скачать обложку: {e}")
 

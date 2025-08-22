@@ -114,7 +114,7 @@ def get_chapters_data(name: str) -> list[ChapterMeta] | None:
     return chapters
 
 
-def get_image_content(url: str, format: str, cover: bool = False) -> bytes | None:
+def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
     headers = {
         "Client-Time-Zone": "Europe/Kyiv",
         "Connection": "keep-alive",
