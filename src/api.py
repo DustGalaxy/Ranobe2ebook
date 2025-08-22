@@ -1,5 +1,6 @@
 import io
 import time
+from urllib.parse import urlparse
 
 from PIL import Image
 import PIL
@@ -20,6 +21,7 @@ def get_base_api_url() -> str | None:
 
 
 BASE_API_URL = get_base_api_url()
+HOST = urlparse(BASE_API_URL).hostname
 
 
 def get_latest_release(owner, repo):
@@ -35,7 +37,22 @@ def get_latest_release(owner, repo):
 def get_branchs(ranobe_id: str) -> dict | None:
     url = f"{BASE_API_URL}/branches/{ranobe_id}?team_defaults=1"
 
-    response = requests.get(url)
+    response = requests.get(
+        url,
+        headers={
+            "Priority": "u=0",
+            "Origin": "https://ranobelib.me",
+            "Referer": "https://ranobelib.me/",
+            "Authorization": f"Bearer {config.token}",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
+            "Host": HOST,
+            "Sec-Gpc": "1",
+            "Site-Id": "3",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
+        },
+    )
 
     if response.status_code != 200:
         return None
@@ -65,6 +82,12 @@ def get_ranobe_data(name: str) -> dict | None:
             "Origin": "https://ranobelib.me",
             "Referer": "https://ranobelib.me/",
             "Authorization": f"Bearer {config.token}",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
+            "Host": HOST,
+            "Sec-Gpc": "1",
+            "Site-Id": "3",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
         },
     )
@@ -158,7 +181,16 @@ def get_chapter(ranobe_name: str, priority_branch: str, number: int, volume: int
     response = requests.get(
         url,
         headers={
+            "Origin": "https://ranobelib.me",
+            "Referer": "https://ranobelib.me/",
             "Authorization": f"Bearer {config.token}",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
+            "Host": HOST,
+            "Sec-Gpc": "1",
+            "Site-Id": "3",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
         },
     )
     if response.status_code != 200:
