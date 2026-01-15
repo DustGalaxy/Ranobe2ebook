@@ -215,6 +215,9 @@ class FB2Handler(Handler):
                 priority_branch,
                 chapter_meta.number,
                 chapter_meta.volume,
+                self.log_func,
+                self.load_from_cache,
+                self.input_download_delay,
             )
         except Exception as e:
             self.log_func("Ошибка: " + str(e))
