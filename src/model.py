@@ -71,6 +71,8 @@ class Handler(ABC):
     max_chapter: str
 
     with_images: bool
+    load_from_cache: bool
+    input_download_delay: int
 
     style_tags: dict[str, str] = field(default_factory=dict)
 

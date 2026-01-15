@@ -150,6 +150,11 @@ class Ranobe2ebook(App):
                                 yield Label("Включать изображения   ")
                                 yield Switch(value=True, id="add_images", classes="swith_wo_border")
 
+                        with RadioSet(classes="w-full mb-1 h-3"):
+                            with Horizontal(classes="horizontal"):
+                                yield Label("Подгрузить из кеша   ")
+                                yield Switch(value=True, id="load_from_cache", classes="swith_wo_border")
+
                         with RadioSet(id="format", name="format", classes="w-full mb-1"):
                             yield Label("Формат")
                             yield Rule(line_style="heavy", classes="rule")
@@ -170,6 +175,15 @@ class Ranobe2ebook(App):
                                 validators=[Function(os.path.isdir, "Invalid directory!")],
                                 classes="input",
                             )
+                        yield Label("Задержка между скачиваниями (сек)", id="input_download_delay_label", classes="w-full mb-1")
+                        yield Input(
+                            id="input_download_delay",
+                            placeholder="Задержка между скачиваниями (сек)",
+                            type="integer",
+                            validators=[Function(is_valid_url, "Неправильная ссылка!")],
+                            classes="w-frame input",
+                            value = "10"
+                        )
                     with Vertical(classes="main-vertical-height w-frame"):
                         with Horizontal(classes="horizontal"):
                             yield Input(
@@ -379,11 +393,17 @@ class Ranobe2ebook(App):
 
         format = self.query_one("#format").pressed_button.name  # type: ignore
         add_images = self.query_one("#add_images").value  # type: ignore
+        load_from_cache = self.query_one("#load_from_cache").value  # type: ignore
 
+        input_download_delay: int = 10
+        if self.query_one("#input_download_delay").value not in ("", None):
+            input_download_delay = int(self.query_one("#input_download_delay").value)
         Handler_: Handler = self.handlers[format]
 
         self.ebook = Handler_(log_func=log.write_line, progress_bar_step=p_bar.advance)  # type: ignore
         self.ebook.with_images = add_images
+        self.ebook.load_from_cache = load_from_cache
+        self.ebook.input_download_delay = input_download_delay
         try:
             self.ebook.make_book(self.ranobe_data)
             log.write_line("Создали книгу")

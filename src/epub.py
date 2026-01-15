@@ -175,6 +175,9 @@ class EpubHandler(Handler):
                 priority_branch,
                 item.number,
                 item.volume,
+                self.log_func,
+                self.load_from_cache,
+                self.input_download_delay,
             )
         except Exception as e:
             self.log_func("Ошибка: " + str(e))
