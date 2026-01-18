@@ -9,6 +9,8 @@ from FB2 import FictionBook2dataclass, SimpleChapter, Image as FB2Image
 from FB2.FB2Builder import FB2Builder
 from bs4 import BeautifulSoup
 
+from lxml import etree, html
+
 from src.model import ChapterData, ChapterMeta, Handler, Image
 from src.api import get_chapter, get_image_content
 from src.utils import set_authors
@@ -221,6 +223,10 @@ class FB2Handler(Handler):
                 self.save_to_cache,
                 self.input_download_delay,
             )
+        except StopIteration:
+            self.log_func("Попытки загрузки главы превышены")
+            return None
+
         except Exception as e:
             self.log_func("Ошибка: " + str(e))
             return None
@@ -231,6 +237,12 @@ class FB2Handler(Handler):
             tags = self._parse_html(chapter)
         elif chapter.type == "doc":
             tags = self._parse_doc(chapter)
+        elif chapter.type == "text":
+            p = ET.Element("p")
+            p.text = chapter.content
+            tags = [
+                p,
+            ]
         else:
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в FB2!")
             return None
@@ -241,9 +253,10 @@ class FB2Handler(Handler):
             soup = BeautifulSoup(text_tag, "html.parser")
             for custom in soup.find_all("custom"):
                 custom.unwrap()
-            clean_tags.append(str(soup))
+            
+            clean_tags.append(soup.decode())
 
-        clean_elements = [ET.fromstring(tag) for tag in clean_tags]
+        clean_elements = [ET.fromstring(tag) for tag in clean_tags if tag.strip()]
 
         chapter_title = f"Том {chapter_meta.volume}. Глава {chapter_meta.number}. {chapter_meta.name}"
         return SimpleChapter(chapter_title, content=clean_elements)
