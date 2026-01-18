@@ -1,5 +1,5 @@
 from src.model import Config
 
-VERSION = "v2.2.4"
+VERSION = "v2.2.5"
 
-config = Config(token="")
+config = Config(token="", cache_dir=None)

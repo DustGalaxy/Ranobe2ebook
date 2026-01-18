@@ -1,8 +1,6 @@
 import io
-import os
 import json
 import time
-from pathlib import Path
 from urllib.parse import urlparse
 
 from PIL import Image
@@ -11,11 +9,13 @@ import cloudscraper
 import requests
 from requests.exceptions import RequestException, Timeout
 
+from src.cache import cache_chapter, get_cache_path
 from src.config import config
 from src.model import Attachment, ChapterData, ChapterMeta
 from src.utils import is_html, is_url
 
 from typing import Callable
+
 
 def get_base_api_url() -> str | None:
     response = requests.get(
@@ -180,32 +180,15 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
     except Exception as e:
         raise Exception(e)
 
+
 def _retry_delays():
     # 10, 20, 30, 60
     yield 10
     yield 20
     yield 30
-    yield 60
-
-    # дальше +60 каждый раз
-    current = 60
     while True:
-        current += 60
-        yield current
+        yield 60
 
-CACHE_DIR = Path.cwd() / "r2ebook_temp"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
-def sanitize_path_component(name: str) -> str:
-    """Делает имя файла/папки безопасным для файловой системы."""
-    return "".join(c if c.isalnum() or c in "-_." else "_" for c in name)
-
-def get_cache_path(ranobe_name: str, priority_branch: str, number: int, volume: int) -> Path:
-    """Возвращает путь к кеш-файлу для главы."""
-    path = CACHE_DIR / sanitize_path_component(ranobe_name) / sanitize_path_component(priority_branch) / str(number)
-    path.mkdir(parents=True, exist_ok=True)
-    filename = f"{volume}.json"
-    return path / filename
 
 def get_chapter(
     ranobe_name: str,
@@ -213,10 +196,10 @@ def get_chapter(
     number: int,
     volume: int,
     log_func: Callable,
-    load_from_cache: bool = True,
-    input_download_delay: int = 10,
+    load_from_cache: bool,
+    save_to_cache: bool,
+    input_download_delay: float = 0.5,
 ) -> "ChapterData":
-    
     # Путь к кешу
     cache_path = get_cache_path(ranobe_name, priority_branch, number, volume)
 
@@ -226,11 +209,9 @@ def get_chapter(
             with cache_path.open("r", encoding="utf-8") as f:
                 cached_data = json.load(f)
             log_func(f"Загружено из кеша: {cache_path}")
-            
-            attachments = [
-                Attachment(**item) for item in cached_data.get("attachments", [])
-            ]
-            
+
+            attachments = [Attachment(**item) for item in cached_data.get("attachments", [])]
+
             return ChapterData(
                 id=cached_data["id"],
                 number=cached_data["number"],
@@ -243,11 +224,8 @@ def get_chapter(
             log_func(f"Ошибка при чтении кеша: {e}. Будем скачивать заново.")
 
     # Обычное скачивание
-    time.sleep(input_download_delay)
-    url = (
-        f"{BASE_API_URL}/manga/{ranobe_name}/chapter"
-        f"?branch_id={priority_branch}&number={number}&volume={volume}"
-    )
+    time.sleep(float(input_download_delay))
+    url = f"{BASE_API_URL}/manga/{ranobe_name}/chapter?branch_id={priority_branch}&number={number}&volume={volume}"
 
     headers = {
         "Origin": "https://ranobelib.me",
@@ -311,20 +289,12 @@ def get_chapter(
                 attachments=attachments,
             )
 
-            # Сохраняем кеш только если успешно
+            # Сохраняем в кеш
             try:
-                with cache_path.open("w", encoding="utf-8") as f:
-                    json.dump({
-                        "id": chapter.id,
-                        "number": chapter.number,
-                        "volume": chapter.volume,
-                        "type": chapter.type,
-                        "content": chapter.content,
-                        "attachments": [a.__dict__ for a in attachments],
-                    }, f, ensure_ascii=False, indent=2)
-                log_func(f"Сохранено в кеш: {cache_path}")
+                if save_to_cache:
+                    cache_chapter(cache_path, chapter, attachments)
             except Exception as e:
-                log_func(f"Не удалось сохранить кеш: {e}")
+                log_func(f"Ошибка при сохранении кеша: {e}")
 
             return chapter
 

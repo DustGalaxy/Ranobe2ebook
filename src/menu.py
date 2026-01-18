@@ -33,6 +33,7 @@ from src.config import config, VERSION
 from src.model import ChapterMeta, Handler, State
 from src.api import get_branchs, get_chapters_data, get_latest_release, get_ranobe_data
 from src.utils import is_jwt, is_valid_url
+from src.cache import clear_cache
 
 title = r"""
      ____                   _          _     ___ ____    ____         _                 _    
@@ -48,7 +49,7 @@ def update_available() -> bool:
     try:
         last_ver = get_latest_release("DustGalaxy", "Ranobe2ebook")
         return last_ver != VERSION
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -150,10 +151,21 @@ class Ranobe2ebook(App):
                                 yield Label("Включать изображения   ")
                                 yield Switch(value=True, id="add_images", classes="swith_wo_border")
 
-                        with RadioSet(classes="w-full mb-1 h-3"):
+                        with RadioSet(classes="w-full mb-1"):
+                            
+                            with Horizontal(classes="horizontal "):
+                                yield Label("Сохранять в кеш       ")
+                                yield Switch(value=False, id="save_to_cache", classes="swith_wo_border")
                             with Horizontal(classes="horizontal"):
-                                yield Label("Подгрузить из кеша   ")
+                                yield Label("Подгрузить из кеша    ")
                                 yield Switch(value=True, id="load_from_cache", classes="swith_wo_border")
+                            yield Rule(line_style="heavy", classes="rule")
+                            yield Button(
+                                "Очистить кеш",
+                                id="clear_cache",
+                                variant="warning",
+                                classes="w-frame",
+                            )
 
                         with RadioSet(id="format", name="format", classes="w-full mb-1"):
                             yield Label("Формат")
@@ -175,14 +187,16 @@ class Ranobe2ebook(App):
                                 validators=[Function(os.path.isdir, "Invalid directory!")],
                                 classes="input",
                             )
-                        yield Label("Задержка между скачиваниями (сек)", id="input_download_delay_label", classes="w-full mb-1")
+                        yield Label(
+                            "Задержка между скачиваниями (сек)", id="input_download_delay_label", classes="w-full mb-1"
+                        )
                         yield Input(
                             id="input_download_delay",
                             placeholder="Задержка между скачиваниями (сек)",
                             type="integer",
-                            validators=[Function(is_valid_url, "Неправильная ссылка!")],
+                            validators=[Function(lambda x: float(x) > 0, "Должно быть больше 0!")],
                             classes="w-frame input",
-                            value = "10"
+                            value="0.5",
                         )
                     with Vertical(classes="main-vertical-height w-frame"):
                         with Horizontal(classes="horizontal"):
@@ -281,6 +295,11 @@ class Ranobe2ebook(App):
                     self.query_one("#chapters_count").update(  # type: ignore
                         f"С: Том {tmp[0].volume}. Глава {tmp[0].number}. По: Том {tmp[-1].volume}. Глава {tmp[-1].number}. - глав: {len_tmp}."
                     )
+
+    @on(Button.Pressed, "#clear_cache")
+    def clear_cache_button(self, event: Button.Pressed) -> None:
+        clear_cache()
+        self.notify("Кэш очищен", timeout=2)
 
     @on(Button.Pressed, "#check_link")
     def check_link(self, event: Button.Pressed) -> None:
@@ -394,16 +413,22 @@ class Ranobe2ebook(App):
         format = self.query_one("#format").pressed_button.name  # type: ignore
         add_images = self.query_one("#add_images").value  # type: ignore
         load_from_cache = self.query_one("#load_from_cache").value  # type: ignore
+        save_to_cache = self.query_one("#save_to_cache").value  # type: ignore
 
-        input_download_delay: int = 10
+        input_download_delay: float = 0.5
         if self.query_one("#input_download_delay").value not in ("", None):
-            input_download_delay = int(self.query_one("#input_download_delay").value)
+            input_download_delay = self.query_one("#input_download_delay").value
+
         Handler_: Handler = self.handlers[format]
 
         self.ebook = Handler_(log_func=log.write_line, progress_bar_step=p_bar.advance)  # type: ignore
         self.ebook.with_images = add_images
         self.ebook.load_from_cache = load_from_cache
+        self.ebook.save_to_cache = save_to_cache
         self.ebook.input_download_delay = input_download_delay
+
+        log.write_line("Сохраняем главы в кеш" if save_to_cache else "Не сохраняем главы в кеш")
+
         try:
             self.ebook.make_book(self.ranobe_data)
             log.write_line("Создали книгу")

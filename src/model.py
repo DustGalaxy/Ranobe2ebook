@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal
-from xml.etree import ElementTree as ET
+from pathlib import Path
+from typing import Callable, Literal
 
 
 @dataclass
@@ -60,6 +60,7 @@ class Exception:
 
 @dataclass
 class Config:
+    cache_dir: Path
     token: str = ""
 
 
@@ -72,6 +73,7 @@ class Handler(ABC):
 
     with_images: bool
     load_from_cache: bool
+    save_to_cache: bool
     input_download_delay: int
 
     style_tags: dict[str, str] = field(default_factory=dict)

@@ -103,3 +103,7 @@ def is_valid_url(url) -> bool:
         return bool(pattern.match(parsed.path))
 
     return False
+
+def sanitize_path_component(name: str) -> str:
+    """Делает имя файла/папки безопасным для файловой системы."""
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in name)
