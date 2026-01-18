@@ -3,7 +3,7 @@ import json
 import time
 from urllib.parse import urlparse
 
-from PIL import Image
+from PIL import Image, ImageFile
 import PIL
 import cloudscraper
 import requests
@@ -15,6 +15,8 @@ from src.model import Attachment, ChapterData, ChapterMeta
 from src.utils import is_html, is_url
 
 from typing import Callable
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def get_base_api_url() -> str | None:
@@ -123,7 +125,7 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
     headers = {
         "Client-Time-Zone": "Europe/Kyiv",
         "Connection": "keep-alive",
-        "Content-Type": "application/json",
+        "Content-Type": "image/*",
         "Host": "cover.imglib.info",
         "Origin": "https://ranobelib.me",
         "Referer": "https://ranobelib.me/",
@@ -144,10 +146,10 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
         for _ in range(3):
             try:
                 if cover:
-                    response = requests.get(url, headers=headers, stream=True, timeout=10)
+                    response = requests.get(url, headers=headers, timeout=10)
                 else:
                     scraper = cloudscraper.create_scraper()
-                    response = scraper.get(url, stream=True, timeout=10)
+                    response = scraper.get(url, timeout=10)
 
                 break
             except requests.exceptions.ChunkedEncodingError:
@@ -156,10 +158,12 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
         match response.status_code:
             case 200:
                 with Image.open(io.BytesIO(response.content)) as img:
+                    if format == "JPEG" and img.mode in ("RGBA", "P"):
+                        img = img.convert("RGB")
+
                     with io.BytesIO() as io_buf:
                         img.save(io_buf, format=format, quality=70)
-                        io_buf.seek(0)
-                        return io_buf.read()
+                        return io_buf.getvalue()
 
             case 404:
                 raise Exception(
@@ -182,12 +186,10 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
 
 
 def _retry_delays():
-    # 10, 20, 30, 60
+    # 10, 20, 30
     yield 10
     yield 20
     yield 30
-    while True:
-        yield 60
 
 
 def get_chapter(
@@ -262,6 +264,9 @@ def get_chapter(
 
             if isinstance(data.get("content"), str) and is_html(data.get("content")):
                 content_type = "html"
+                content = data.get("content")
+            elif isinstance(data.get("content"), str):
+                content_type = "text"
                 content = data.get("content")
             else:
                 content_type = "doc"

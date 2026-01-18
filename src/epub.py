@@ -195,6 +195,12 @@ class EpubHandler(Handler):
             tags: list[str] = self._parse_html(chapter)
         elif chapter.type == "doc":
             tags: list[ET.Element] = self._parse_doc(chapter)
+        elif chapter.type == "text":
+            p = ET.Element("p")
+            p.text = chapter.content
+            tags = [
+                p,
+            ]
         else:
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в EPUB!")
             return None
