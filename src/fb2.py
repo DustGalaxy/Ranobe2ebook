@@ -3,6 +3,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from xml.etree import ElementTree as ET
+from typing import Any
 
 from FB2 import FictionBook2dataclass, SimpleChapter, Image as FB2Image
 from FB2.FB2Builder import FB2Builder
@@ -104,7 +105,7 @@ class FB2Handler(Handler):
         tag.append(self._parse_marks(marks, new_tag, text, _index + 1))
         return tag
 
-    def _parse_paragraph(self, paragraph: dict, element: str = "p") -> ET.Element:
+    def _parse_paragraph(self, paragraph: dict[str, Any], element: str = "p") -> ET.Element:
         paragraphE = ET.Element(element)
 
         attrs = paragraph.get("attrs")
@@ -129,7 +130,7 @@ class FB2Handler(Handler):
         return paragraphE
 
     def _parse_list(self, list_obj: dict, type: str, level=1) -> ET.Element:
-        listE: ET.Element = ET.Element("custom")
+        listE: ET.Element = ET.Element("list")
         for i, list_item in enumerate(list_obj, start=1):
             if "content" not in list_item:
                 continue
@@ -215,6 +216,10 @@ class FB2Handler(Handler):
                 priority_branch,
                 chapter_meta.number,
                 chapter_meta.volume,
+                self.log_func,
+                self.load_from_cache,
+                self.save_to_cache,
+                self.input_download_delay,
             )
         except Exception as e:
             self.log_func("Ошибка: " + str(e))

@@ -87,7 +87,7 @@
 }
 
 .main-vertical-height {
-    height: 34;
+    height: 48;
 }
 
 #format {

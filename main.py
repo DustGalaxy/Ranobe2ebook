@@ -6,7 +6,7 @@ from src.model import Handler
 from src.menu import Ranobe2ebook
 from src.fb2 import FB2Handler
 from src.epub import EpubHandler
-
+from src.config import config
 
 def setup_logging(logs_dir: Path) -> None:
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -25,7 +25,19 @@ def get_handlers() -> Dict[str, Handler]:
 
 def main() -> None:
     docs_path = Path.home() / "Documents"
+    if not (docs_path / "ranobelib-parser-logs").exists():
+        (docs_path / "ranobelib-parser-logs").mkdir(parents=True)
+
     logs_dir = docs_path / "ranobelib-parser-logs"
+    if not logs_dir.exists():
+        logs_dir.mkdir(parents=True)
+    
+    if not (docs_path / "ranobelib-parser-cache").exists():
+        (docs_path / "ranobelib-parser-cache").mkdir(parents=True)
+
+    cache_path = docs_path / "ranobelib-parser-cache"
+    
+    config.cache_dir = cache_path
 
     setup_logging(logs_dir)
     logger = logging.getLogger(__name__)

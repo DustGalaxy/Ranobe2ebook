@@ -1,4 +1,5 @@
 import io
+import json
 import time
 from urllib.parse import urlparse
 
@@ -6,10 +7,14 @@ from PIL import Image
 import PIL
 import cloudscraper
 import requests
+from requests.exceptions import RequestException, Timeout
 
+from src.cache import cache_chapter, get_cache_path
 from src.config import config
 from src.model import Attachment, ChapterData, ChapterMeta
 from src.utils import is_html, is_url
+
+from typing import Callable
 
 
 def get_base_api_url() -> str | None:
@@ -176,56 +181,124 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
         raise Exception(e)
 
 
-def get_chapter(ranobe_name: str, priority_branch: str, number: int, volume: int) -> ChapterData:
+def _retry_delays():
+    # 10, 20, 30, 60
+    yield 10
+    yield 20
+    yield 30
+    while True:
+        yield 60
+
+
+def get_chapter(
+    ranobe_name: str,
+    priority_branch: str,
+    number: int,
+    volume: int,
+    log_func: Callable,
+    load_from_cache: bool,
+    save_to_cache: bool,
+    input_download_delay: float = 0.5,
+) -> "ChapterData":
+    # Путь к кешу
+    cache_path = get_cache_path(ranobe_name, priority_branch, number, volume)
+
+    # Попытка загрузки из кеша
+    if load_from_cache and cache_path.exists():
+        try:
+            with cache_path.open("r", encoding="utf-8") as f:
+                cached_data = json.load(f)
+            log_func(f"Загружено из кеша: {cache_path}")
+
+            attachments = [Attachment(**item) for item in cached_data.get("attachments", [])]
+
+            return ChapterData(
+                id=cached_data["id"],
+                number=cached_data["number"],
+                volume=cached_data["volume"],
+                type=cached_data["type"],
+                content=cached_data["content"],
+                attachments=attachments,
+            )
+        except Exception as e:
+            log_func(f"Ошибка при чтении кеша: {e}. Будем скачивать заново.")
+
+    # Обычное скачивание
+    time.sleep(float(input_download_delay))
     url = f"{BASE_API_URL}/manga/{ranobe_name}/chapter?branch_id={priority_branch}&number={number}&volume={volume}"
-    response = requests.get(
-        url,
-        headers={
-            "Origin": "https://ranobelib.me",
-            "Referer": "https://ranobelib.me/",
-            "Authorization": f"Bearer {config.token}",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "cross-site",
-            "Host": HOST,
-            "Sec-Gpc": "1",
-            "Site-Id": "3",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
-        },
-    )
-    if response.status_code != 200:
-        raise Exception(f"Ошибка при получении главы {volume} - {number}. Пропускаем главу {volume} - {number}")
 
-    else:
-        data = response.json().get("data")
+    headers = {
+        "Origin": "https://ranobelib.me",
+        "Referer": "https://ranobelib.me/",
+        "Authorization": f"Bearer {config.token}",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "cross-site",
+        "Host": HOST,
+        "Sec-Gpc": "1",
+        "Site-Id": "3",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
+        ),
+    }
 
-        if isinstance(data.get("content"), str) and is_html(data.get("content")):
-            type = "html"
-            content = data.get("content")
-        else:
-            type = "doc"
-            content = data.get("content").get("content")
+    delays = _retry_delays()
+    attempt = 0
 
-        attachments = []
-        if len(data.get("attachments")):
-            for item in data.get("attachments"):
-                attachments.append(
-                    Attachment(
-                        id=item.get("id"),
-                        name=item.get("name"),
-                        url=item.get("url"),
-                        extension=item.get("extension"),
-                        filename=item.get("filename"),
-                        width=item.get("width"),
-                        height=item.get("height"),
-                    )
+    while True:
+        try:
+            attempt += 1
+            if attempt > 1:
+                log_func(f"\nПопытка {attempt}")
+
+            response = requests.get(url, headers=headers, timeout=30)
+
+            if response.status_code != 200:
+                raise Exception(f"HTTP {response.status_code} для главы {volume}-{number}")
+
+            data = response.json().get("data")
+
+            if isinstance(data.get("content"), str) and is_html(data.get("content")):
+                content_type = "html"
+                content = data.get("content")
+            else:
+                content_type = "doc"
+                content = data.get("content").get("content")
+
+            attachments = [
+                Attachment(
+                    id=item.get("id"),
+                    name=item.get("name"),
+                    url=item.get("url"),
+                    extension=item.get("extension"),
+                    filename=item.get("filename"),
+                    width=item.get("width"),
+                    height=item.get("height"),
                 )
+                for item in data.get("attachments") or []
+            ]
 
-        return ChapterData(
-            id=data.get("id"),
-            number=data.get("number"),
-            volume=data.get("volume"),
-            type=type,
-            content=content,
-            attachments=attachments,
-        )
+            chapter = ChapterData(
+                id=data.get("id"),
+                number=data.get("number"),
+                volume=data.get("volume"),
+                type=content_type,
+                content=content,
+                attachments=attachments,
+            )
+
+            # Сохраняем в кеш
+            try:
+                if save_to_cache:
+                    cache_chapter(cache_path, chapter, attachments)
+            except Exception as e:
+                log_func(f"Ошибка при сохранении кеша: {e}")
+
+            return chapter
+
+        except (RequestException, Timeout, Exception) as exc:
+            delay = next(delays)
+            log_func(f"\n[{attempt}] Ошибка: {exc}. Повтор через {delay} сек")
+            time.sleep(delay)
