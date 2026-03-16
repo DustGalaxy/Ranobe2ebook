@@ -109,7 +109,18 @@ def get_chapters_data(name: str) -> list[ChapterMeta] | None:
 
     response = requests.get(
         url,
-        headers={"Authorization": f"Bearer {config.token}"},
+        headers={
+            "Origin": "https://ranobelib.me",
+            "Referer": "https://ranobelib.me/",
+            "Authorization": f"Bearer {config.token}",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
+            "Host": HOST,
+            "Sec-Gpc": "1",
+            "Site-Id": "3",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
+        },
     )
     if response.status_code != 200:
         return None
