@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = "==3.12.*"
 
 [[package]]
@@ -150,6 +150,9 @@ dependencies = [
     { name = "iso-639" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5c/53/cb6f88ba1aaac4cb85e787fedafaced6067bc317f73de57dce880b3e98b9/fb2-0.2.1.tar.gz", hash = "sha256:0b0abf5e453a99f32eec16a49a901a23d40e3fce6ce17ab7ed564630bb1848fe", size = 2177099, upload-time = "2025-04-21T01:19:12.202Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/62/b5e94989674e244ac4b3ba25985727111c56d4077148c3d7f83cf6025639/fb2-0.2.1-py3-none-any.whl", hash = "sha256:3991df5a2b07db42ed068f4fc9b24f28e7cd8abc24f6537ab25dfdffc7f6a4a3", size = 12635, upload-time = "2025-10-22T12:59:52.347Z" },
+]
 
 [[package]]
 name = "future"
@@ -463,7 +466,7 @@ wheels = [
 
 [[package]]
 name = "ranobelib-parser"
-version = "2.2.2"
+version = "2.2.6"
 source = { editable = "." }
 dependencies = [
     { name = "auto-py-to-exe" },

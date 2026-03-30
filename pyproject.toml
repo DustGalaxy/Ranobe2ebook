@@ -1,6 +1,6 @@
 [project]
 name = "ranobelib-parser"
-version = "2.2.6"
+version = "2.2.7"
 description = ""
 authors = [{ name="Midnull" }] # Авторы теперь должны быть списком таблиц
 license = "MIT" # Лицензия

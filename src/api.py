@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import time
 from urllib.parse import urlparse
 
@@ -18,27 +19,37 @@ from typing import Callable
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+logger = logging.getLogger(__name__)
+
 
 def get_base_api_url() -> str | None:
     response = requests.get(
         f"https://gist.githubusercontent.com/DustGalaxy/958d8a9fe76d7253d1511d99d180d1c5.txt?nocache={int(time.time())}"
     )
     if response.status_code == 200:
-        return str(response.content.decode("utf-8")).strip()
+        url = str(response.content.decode("utf-8")).strip()
+        logger.info(f"Base API URL fetched successfully: {url}")
+        return url
+    logger.error(f"Failed to fetch base API URL. Status code: {response.status_code}")
+    return None
 
 
 BASE_API_URL = get_base_api_url()
-HOST = urlparse(BASE_API_URL).hostname
+HOST = urlparse(BASE_API_URL).hostname if BASE_API_URL else None
+logger.info(f"API Host: {HOST}")
 
 
 def get_latest_release(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+    logger.info(f"Checking latest release for {owner}/{repo}")
     response = requests.get(url)
     if response.ok:
         data = response.json()
+        logger.info(f"Latest release version: {data.get('tag_name')}")
         return data["tag_name"]
     else:
-        raise Exception(f"Ошибка запроса: {response.status_code} - {response.text}")
+        logger.error(f"GitHub API error: {response.status_code} - {response.text}")
+        raise Exception(f"Ошибка запроса: {response.status_code}")
 
 
 def get_branchs(ranobe_id: str) -> dict | None:
@@ -60,10 +71,11 @@ def get_branchs(ranobe_id: str) -> dict | None:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
         },
     )
-
     if response.status_code != 200:
+        logger.error(f"Failed to get branches for ID {ranobe_id}. Status: {response.status_code}")
         return None
 
+    logger.info(f"Successfully fetched branches for ID {ranobe_id}")
     return response.json().get("data")
 
 
@@ -99,8 +111,10 @@ def get_ranobe_data(name: str) -> dict | None:
         },
     )
     if response.status_code != 200:
+        logger.error(f"Failed to get ranobe data for '{name}'. Status: {response.status_code}")
         return None
 
+    logger.info(f"Successfully fetched ranobe data for '{name}'")
     return response.json().get("data")
 
 
@@ -123,11 +137,13 @@ def get_chapters_data(name: str) -> list[ChapterMeta] | None:
         },
     )
     if response.status_code != 200:
+        logger.error(f"Failed to get chapters data for '{name}'. Status: {response.status_code} - {response.text}")
         return None
     chapters = [
         ChapterMeta(name=data.get("name"), number=data.get("number"), volume=data.get("volume"))
         for data in response.json().get("data")
     ]
+    logger.info(f"Successfully fetched {len(chapters)} chapters for '{name}'")
 
     return chapters
 
@@ -147,6 +163,7 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
         "Site-Id": "3",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
     }
+    logger.debug(f"Requesting image content: {url}")
     try:
         if format.upper() == "JPG":
             format = "JPEG"
@@ -173,6 +190,7 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
                         img = img.convert("RGB")
 
                     with io.BytesIO() as io_buf:
+                        logger.debug(f"Image processed successfully: {url}")
                         img.save(io_buf, format=format, quality=70)
                         return io_buf.getvalue()
 
@@ -239,6 +257,7 @@ def get_chapter(
     # Обычное скачивание
     time.sleep(float(input_download_delay))
     url = f"{BASE_API_URL}/manga/{ranobe_name}/chapter?branch_id={priority_branch}&number={number}&volume={volume}"
+    logger.info(f"Downloading chapter: Vol {volume} No {number} from branch {priority_branch}")
 
     headers = {
         "Origin": "https://ranobelib.me",
@@ -267,8 +286,8 @@ def get_chapter(
                 log_func(f"\nПопытка {attempt}")
 
             response = requests.get(url, headers=headers, timeout=30)
-
             if response.status_code != 200:
+                logger.error(f"Error fetching chapter. Status: {response.status_code}, Response: {response.text}")
                 raise Exception(f"HTTP {response.status_code} для главы {volume}-{number}")
 
             data = response.json().get("data")
@@ -305,6 +324,7 @@ def get_chapter(
                 attachments=attachments,
             )
 
+            logger.info(f"Chapter {volume}-{number} downloaded successfully. ID: {chapter.id}")
             # Сохраняем в кеш
             try:
                 if save_to_cache:

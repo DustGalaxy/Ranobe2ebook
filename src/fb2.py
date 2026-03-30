@@ -118,14 +118,14 @@ class FB2Handler(Handler):
         if "content" not in paragraph:
             return paragraphE
 
-        for element in paragraph.get("content"):
-            if element.get("type") == "text":
+        for pelement in paragraph["content"]:
+            if pelement["type"] == "text":
                 ETelement = ET.Element("custom")
 
-                if "marks" in element:
-                    self._parse_marks(element.get("marks"), ETelement, element.get("text"))
+                if "marks" in pelement:
+                    self._parse_marks(pelement["marks"], ETelement, pelement["text"])
                 else:
-                    ETelement.text = element.get("text")
+                    ETelement.text = pelement["text"]
 
                 paragraphE.append(ETelement)
 
@@ -153,10 +153,10 @@ class FB2Handler(Handler):
         item_type = tag.get("type")
         match item_type:
             case "image":
-                images: dict[str, Image] = kwargs.get("images")
+                images: dict[str, Image] = kwargs["images"]
                 if not images:
                     return ET.Element("custom")
-                img_name = tag.get("attrs").get("images")[-1].get("image")
+                img_name = tag["attrs"]["images"][-1]["image"]
                 img = images.get(img_name)
                 return self._insert_image(img) if img and self.with_images else ET.Element("custom")
 
@@ -170,11 +170,11 @@ class FB2Handler(Handler):
                 return hr
 
             case "bulletList" | "orderedList":
-                list_items = tag.get("content")
+                list_items = tag["content"]
                 return self._parse_list(list_items, item_type, kwargs.get("level", 1))
 
             case "heading":
-                level = tag.get("attrs").get("level")
+                level = tag["attrs"]["level"]
                 el_type = "title" if level == 2 else "subtitle"
                 heading = ET.Element(el_type)
                 heading.append(self._parse_paragraph(tag))
@@ -182,7 +182,7 @@ class FB2Handler(Handler):
 
             case "blockquote":
                 blockquoteE = ET.Element("epigraph")
-                for b_tag in tag.get("content"):
+                for b_tag in tag["content"]:
                     blockquoteE.append(self._tag_parser(b_tag, kwargs=kwargs))
                 return blockquoteE
 
@@ -253,7 +253,7 @@ class FB2Handler(Handler):
             soup = BeautifulSoup(text_tag, "html.parser")
             for custom in soup.find_all("custom"):
                 custom.unwrap()
-            
+
             clean_tags.append(soup.decode())
 
         clean_elements = [ET.fromstring(tag) for tag in clean_tags if tag.strip()]
@@ -302,7 +302,7 @@ class FB2Handler(Handler):
         self.book.write(file_path)
         self.log_func(f"Книга {self.book.titleInfo.title} сохранена в формате FB2!")
         self.log_func(f"В каталоге {dir} создана книга {safe_title}.fb2")
-        self.book = None
+        self.book = None  # type: ignore
 
     def end_book(self) -> None:
         self.book.titleInfo.sequences = [
@@ -315,7 +315,7 @@ class FB2Handler(Handler):
     def make_book(self, ranobe_data: dict) -> None:
         self.log_func("Подготавливаем книгу...")
 
-        title = ranobe_data.get("rus_name") if ranobe_data.get("rus_name") else ranobe_data.get("name")
+        title = ranobe_data["rus_name"] if ranobe_data.get("rus_name") else ranobe_data["name"]
         book = MyFictionBook2()
         book.titleInfo.title = title
         book.titleInfo.annotation = ranobe_data.get("summary")
@@ -324,7 +324,7 @@ class FB2Handler(Handler):
         book.titleInfo.lang = "ru"
         book.documentInfo.programUsed = "Ranobe2ebook"
         book.customInfos = ["meta", "rating"]
-        cover_url = ranobe_data.get("cover").get("default")
+        cover_url = ranobe_data["cover"]["default"]
         try:
             cover_image = get_image_content(cover_url, cover_url.split(".")[-1], True)
             book.titleInfo.coverPageImages = [

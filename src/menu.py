@@ -193,7 +193,7 @@ class Ranobe2ebook(App):
                         yield Input(
                             id="input_download_delay",
                             placeholder="Задержка между скачиваниями (сек)",
-                            type="integer",
+                            type="number",
                             validators=[Function(lambda x: float(x) > 0, "Должно быть больше 0!")],
                             classes="w-frame input",
                             value="0.5",
