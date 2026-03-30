@@ -74,7 +74,7 @@ class Handler(ABC):
     with_images: bool
     load_from_cache: bool
     save_to_cache: bool
-    input_download_delay: int
+    input_download_delay: float
 
     style_tags: dict[str, str] = field(default_factory=dict)
 

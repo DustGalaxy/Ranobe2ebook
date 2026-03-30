@@ -1,4 +1,5 @@
 import os
+import logging
 import re
 import time
 from xml.etree import ElementTree as ET
@@ -8,6 +9,9 @@ from ebooklib import epub
 
 from src.model import ChapterData, ChapterMeta, Image, Handler
 from src.api import get_chapter, get_image_content
+
+
+logger = logging.getLogger(__name__)
 
 
 class EpubHandler(Handler):
@@ -39,6 +43,7 @@ class EpubHandler(Handler):
                     imageE = self._insert_image(image) if self.with_images else ET.Element("span")
                     tags.append(imageE)
                 except Exception as e:
+                    logger.error(f"Error processing image {url} in chapter {chapter.id}: {e}")
                     self.log_func("Ошибка: " + str(e))
 
                 continue
@@ -49,8 +54,10 @@ class EpubHandler(Handler):
     def _insert_image(self, image: Image) -> ET.Element:
         for item in self.book.items:
             if isinstance(item, epub.EpubImage) and item.content == image.content:
+                logger.debug(f"Image {image.uid} already exists in book, reusing.")
                 return ET.Element("img", attrib={"src": item.file_name})
 
+        logger.debug(f"Inserting new image into EPUB: {image.uid}")
         self.book.add_item(
             epub.EpubImage(
                 uid=image.uid,
@@ -82,14 +89,14 @@ class EpubHandler(Handler):
         if "content" not in paragraph:
             return paragraphE
 
-        for element in paragraph.get("content"):
-            if element.get("type") == "text":
+        for pelement in paragraph["content"]:
+            if pelement["type"] == "text":
                 ETelement = ET.Element("span")
 
-                if "marks" in element:
-                    self._parse_marks(element.get("marks"), ETelement, element.get("text"))
+                if "marks" in pelement:
+                    self._parse_marks(pelement["marks"], ETelement, pelement["text"])
                 else:
-                    ETelement.text = element.get("text")
+                    ETelement.text = pelement["text"]
 
                 paragraphE.append(ETelement)
 
@@ -100,7 +107,7 @@ class EpubHandler(Handler):
         for list_item in list_content:
             li = ET.SubElement(listE, "li")
 
-            for li_content in list_item.get("content"):
+            for li_content in list_item["content"]:
                 tag = self._tag_parser(li_content)
                 li.append(tag)
 
@@ -110,10 +117,10 @@ class EpubHandler(Handler):
         tag_type = tag.get("type")
         match tag_type:
             case "image":
-                images: dict[str, Image] = kwargs.get("images")
+                images: dict[str, Image] = kwargs["images"]
                 if not images:
                     return ET.Element("span")
-                img_name = tag.get("attrs").get("images")[-1].get("image")
+                img_name = tag["attrs"]["images"][-1]["image"]
                 img = images.get(img_name)
 
                 return self._insert_image(img) if img and self.with_images else ET.Element("span")
@@ -125,12 +132,12 @@ class EpubHandler(Handler):
                 return ET.Element("hr", attrib={"style": "width: 100%;"})
 
             case "bulletList" | "orderedList":
-                list_items = tag.get("content")
+                list_items = tag["content"]
                 listE = self._parse_list(list_items, tag_type)
                 return listE
 
             case "heading":
-                level = tag.get("attrs").get("level")
+                level = tag["attrs"]["level"]
                 return self._parse_paragraph(tag, "h" + str(level))
 
             case "blockquote":
@@ -138,7 +145,7 @@ class EpubHandler(Handler):
                     "blockquote",
                     attrib={"style": "background-color: rgba(0, 0, 0, 0.2); padding: 10px 20px; border-radius: 15px;"},
                 )
-                for b_tag in tag.get("content"):
+                for b_tag in tag["content"]:
                     blockquoteE.append(self._tag_parser(b_tag, kwargs=kwargs))
                 return blockquoteE
 
@@ -153,6 +160,7 @@ class EpubHandler(Handler):
             try:
                 content = get_image_content(img_base_url + attachment.url, attachment.extension)
             except Exception as e:
+                logger.error(f"Error fetching attachment {attachment.url}: {e}")
                 self.log_func("Ошибка: " + str(e))
                 continue
 
@@ -169,6 +177,7 @@ class EpubHandler(Handler):
         return tags
 
     def _make_chapter(self, slug: str, priority_branch: str, item: ChapterMeta) -> epub.EpubHtml | None:
+        logger.info(f"Preparing EPUB chapter: Vol {item.volume} No {item.number}")
         try:
             chapter: ChapterData = get_chapter(
                 slug,
@@ -177,9 +186,11 @@ class EpubHandler(Handler):
                 item.volume,
                 self.log_func,
                 self.load_from_cache,
+                self.save_to_cache,
                 self.input_download_delay,
             )
         except Exception as e:
+            logger.error(f"Failed to fetch chapter data for {item.volume}-{item.number}: {e}")
             self.log_func("Ошибка: " + str(e))
             return None
 
@@ -187,7 +198,7 @@ class EpubHandler(Handler):
 
         epub_chapter = epub.EpubHtml(
             title=chapter_title,
-            file_name=item.number + "_" + item.volume + ".xhtml",
+            file_name=str(item.number) + "_" + str(item.volume) + ".xhtml",
         )
 
         tags: list[ET.Element] = []
@@ -202,6 +213,7 @@ class EpubHandler(Handler):
                 p,
             ]
         else:
+            logger.error(f"Unknown chapter type found: {chapter.type}")
             self.log_func("Неизвестный тип главы! Невозможно преобразовать в EPUB!")
             return None
 
@@ -231,6 +243,7 @@ class EpubHandler(Handler):
         chap_len = len(str(max(chapters_data, key=lambda x: len(str(x.number))).number))
         volume_len = len(str(chapters_data[-1].volume))
 
+        logger.info(f"Starting to fill EPUB book with {len(chapters_data)} chapters.")
         self.log_func(f"\nНачинаем скачивать главы: {len(chapters_data)}")
 
         for i, chapter_meta in enumerate(chapters_data, 1):
@@ -246,6 +259,7 @@ class EpubHandler(Handler):
                     f"Скачали {i:>{total_len}}: Том {chapter_meta.volume:>{volume_len}}. Глава {chapter_meta.number:>{chap_len}}. {chapter_meta.name}"
                 )
             else:
+                logger.warning(f"Skipping chapter: Vol {chapter_meta.volume} No {chapter_meta.number}")
                 self.log_func("Пропускаем главу.")
 
             self.progress_bar_step(1)
@@ -253,6 +267,7 @@ class EpubHandler(Handler):
     def save_book(self, dir: str) -> None:
         safe_title = re.sub(r'[<>:"/\\|?*]', "", self.book.title)
         file_path = os.path.join(dir, f"{safe_title}.epub")
+        logger.info(f"Saving EPUB file to: {file_path}")
         epub.write_epub(file_path, self.book)
 
         self.log_func(f"Книга {self.book.title} сохранена в формате Epub.")
@@ -260,6 +275,7 @@ class EpubHandler(Handler):
         self.book = None  # type: ignore
 
     def end_book(self) -> None:
+        logger.info("Finalizing EPUB: adding TOC, Nav and Metadata.")
         self.book.toc = (epub.Section("1"),) + tuple(  # type: ignore
             chap for chap in self.book.items if isinstance(chap, epub.EpubHtml)
         )
@@ -277,6 +293,7 @@ class EpubHandler(Handler):
         )
 
     def make_book(self, ranobe_data: dict) -> None:
+        logger.info(f"Creating EPUB book object for: {ranobe_data.get('rus_name') or ranobe_data.get('name')}")
         self.log_func("\nПодготавливаем книгу...")
 
         title = ranobe_data.get("rus_name") if ranobe_data.get("rus_name") else ranobe_data.get("name")
@@ -294,6 +311,7 @@ class EpubHandler(Handler):
                 cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1], True), False
             )
         except Exception as e:
+            logger.error(f"Could not download cover image from {cover_url}: {e}")
             self.log_func(f"Не удалось скачать обложку: {e}")
 
         book.add_metadata(

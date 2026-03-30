@@ -1,11 +1,14 @@
 import json
+import logging
 import shutil
 from pathlib import Path
-
 
 from src.model import ChapterData, Attachment
 from src.utils import sanitize_path_component
 from src.config import config
+
+
+logger = logging.getLogger(__name__)
 
 
 def clear_cache():
@@ -17,7 +20,7 @@ def clear_cache():
                 elif path.is_dir():
                     shutil.rmtree(path)
             except Exception as e:
-                print(f"Ошибка при удалении {path}: {e}")
+                logger.error(f"Error deleting cache path {path}: {e}")
 
 
 def get_cache_path(ranobe_name: str, priority_branch: str, number: int, volume: int) -> Path:
@@ -31,7 +34,6 @@ def get_cache_path(ranobe_name: str, priority_branch: str, number: int, volume: 
 
 
 def cache_chapter(cache_path: Path, chapter: ChapterData, attachments: list[Attachment]):
-    # Сохраняем кеш только если успешно
     with cache_path.open("w", encoding="utf-8") as f:
         json.dump(
             {
