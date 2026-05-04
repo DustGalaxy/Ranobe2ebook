@@ -466,7 +466,7 @@ wheels = [
 
 [[package]]
 name = "ranobelib-parser"
-version = "2.2.6"
+version = "2.2.7"
 source = { editable = "." }
 dependencies = [
     { name = "auto-py-to-exe" },

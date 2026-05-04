@@ -6,7 +6,6 @@ from urllib.parse import urlparse
 
 from PIL import Image, ImageFile
 import PIL
-import cloudscraper
 import requests
 from requests.exceptions import RequestException, Timeout
 
@@ -14,7 +13,7 @@ from src.cache import cache_chapter, get_cache_path
 from src.config import config
 from src.model import Attachment, ChapterData, ChapterMeta
 from src.utils import is_html, is_url
-
+from src.headers import get_headers, get_image_headers
 from typing import Callable
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -35,7 +34,7 @@ def get_base_api_url() -> str | None:
 
 
 BASE_API_URL = get_base_api_url()
-HOST = urlparse(BASE_API_URL).hostname if BASE_API_URL else None
+HOST = (urlparse(BASE_API_URL).hostname if BASE_API_URL else "") or "ranobelib.me"
 logger.info(f"API Host: {HOST}")
 
 
@@ -57,19 +56,7 @@ def get_branchs(ranobe_id: str) -> dict | None:
 
     response = requests.get(
         url,
-        headers={
-            "Priority": "u=0",
-            "Origin": "https://ranobelib.me",
-            "Referer": "https://ranobelib.me/",
-            "Authorization": f"Bearer {config.token}",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "cross-site",
-            "Host": HOST,
-            "Sec-Gpc": "1",
-            "Site-Id": "3",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
-        },
+        headers=get_headers(HOST, config.token),
     )
     if response.status_code != 200:
         logger.error(f"Failed to get branches for ID {ranobe_id}. Status: {response.status_code}")
@@ -97,18 +84,7 @@ def get_ranobe_data(name: str) -> dict | None:
     )
     response = requests.get(
         url,
-        headers={
-            "Origin": "https://ranobelib.me",
-            "Referer": "https://ranobelib.me/",
-            "Authorization": f"Bearer {config.token}",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "cross-site",
-            "Host": HOST,
-            "Sec-Gpc": "1",
-            "Site-Id": "3",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
-        },
+        headers=get_headers(HOST, config.token),
     )
     if response.status_code != 200:
         logger.error(f"Failed to get ranobe data for '{name}'. Status: {response.status_code}")
@@ -123,18 +99,7 @@ def get_chapters_data(name: str) -> list[ChapterMeta] | None:
 
     response = requests.get(
         url,
-        headers={
-            "Origin": "https://ranobelib.me",
-            "Referer": "https://ranobelib.me/",
-            "Authorization": f"Bearer {config.token}",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "cross-site",
-            "Host": HOST,
-            "Sec-Gpc": "1",
-            "Site-Id": "3",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
-        },
+        headers=get_headers(HOST, config.token),
     )
     if response.status_code != 200:
         logger.error(f"Failed to get chapters data for '{name}'. Status: {response.status_code} - {response.text}")
@@ -149,21 +114,9 @@ def get_chapters_data(name: str) -> list[ChapterMeta] | None:
 
 
 def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
-    headers = {
-        "Client-Time-Zone": "Europe/Kyiv",
-        "Connection": "keep-alive",
-        "Content-Type": "image/*",
-        "Host": "cover.imglib.info",
-        "Origin": "https://ranobelib.me",
-        "Referer": "https://ranobelib.me/",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "cross-site",
-        "Sec-Gpc": "1",
-        "Site-Id": "3",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:141.0) Gecko/20100101 Firefox/141.0",
-    }
+
     logger.debug(f"Requesting image content: {url}")
+
     try:
         if format.upper() == "JPG":
             format = "JPEG"
@@ -171,17 +124,17 @@ def get_image_content(url: str, format: str, cover: bool = False) -> bytes:
         if not is_url(url):
             return b""
 
+        response = None
         for _ in range(3):
             try:
-                if cover:
-                    response = requests.get(url, headers=headers, timeout=10)
-                else:
-                    scraper = cloudscraper.create_scraper()
-                    response = scraper.get(url, timeout=10)
+                response = requests.request("GET", url, headers=get_image_headers(cover), timeout=10)
 
                 break
             except requests.exceptions.ChunkedEncodingError:
                 continue
+
+        if response is None:
+            raise Exception("Не удалось получить картинку. Пропускаем картинку.")
 
         match response.status_code:
             case 200:
@@ -259,23 +212,6 @@ def get_chapter(
     url = f"{BASE_API_URL}/manga/{ranobe_name}/chapter?branch_id={priority_branch}&number={number}&volume={volume}"
     logger.info(f"Downloading chapter: Vol {volume} No {number} from branch {priority_branch}")
 
-    headers = {
-        "Origin": "https://ranobelib.me",
-        "Referer": "https://ranobelib.me/",
-        "Authorization": f"Bearer {config.token}",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "cross-site",
-        "Host": HOST,
-        "Sec-Gpc": "1",
-        "Site-Id": "3",
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
-        ),
-    }
-
     delays = _retry_delays()
     attempt = 0
 
@@ -285,7 +221,7 @@ def get_chapter(
             if attempt > 1:
                 log_func(f"\nПопытка {attempt}")
 
-            response = requests.get(url, headers=headers, timeout=30)
+            response = requests.get(url, headers=get_headers(HOST, config.token), timeout=30)
             if response.status_code != 200:
                 logger.error(f"Error fetching chapter. Status: {response.status_code}, Response: {response.text}")
                 raise Exception(f"HTTP {response.status_code} для главы {volume}-{number}")

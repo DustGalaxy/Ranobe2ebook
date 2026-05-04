@@ -318,13 +318,26 @@ class FB2Handler(Handler):
         title = ranobe_data["rus_name"] if ranobe_data.get("rus_name") else ranobe_data["name"]
         book = MyFictionBook2()
         book.titleInfo.title = title
-        book.titleInfo.annotation = ranobe_data.get("summary")
-        book.titleInfo.authors = set_authors(ranobe_data.get("authors"))
-        book.titleInfo.genres = [genre.get("name") for genre in ranobe_data.get("genres")]
-        book.titleInfo.lang = "ru"
-        book.documentInfo.programUsed = "Ranobe2ebook"
-        book.customInfos = ["meta", "rating"]
-        cover_url = ranobe_data["cover"]["default"]
+        try:
+            if isinstance(ranobe_data.get("summary"), dict) and ranobe_data.get("summary"):
+                description = str(self._tag_parser(ranobe_data["summary"]["content"][0], images={}))
+
+            elif isinstance(ranobe_data.get("summary"), str):
+                description = ranobe_data["summary"].replace("\n", "<p>")
+
+            else:
+                description = ""
+
+            book.titleInfo.annotation = description
+            book.titleInfo.authors = set_authors(ranobe_data.get("authors"))
+            book.titleInfo.genres = [genre.get("name") for genre in ranobe_data.get("genres")]
+            book.titleInfo.lang = "ru"
+            book.documentInfo.programUsed = "Ranobe2ebook"
+            book.customInfos = ["meta", "rating"]
+            cover_url = ranobe_data["cover"]["default"]
+        except Exception as e:
+            self.log_func(f"Ошибка при подготовке книги: {e}")
+
         try:
             cover_image = get_image_content(cover_url, cover_url.split(".")[-1], True)
             book.titleInfo.coverPageImages = [

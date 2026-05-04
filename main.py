@@ -38,7 +38,7 @@ from src.epub import EpubHandler
 from src.config import config
 
 
-def get_handlers() -> Dict[str, Handler]:
+def get_handlers() -> Dict[str, type[Handler]]:
     """Возвращает словарь доступных обработчиков форматов."""
     return {"fb2": FB2Handler, "epub": EpubHandler}
 

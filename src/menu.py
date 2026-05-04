@@ -71,7 +71,7 @@ class Ranobe2ebook(App):
     def __init__(
         self,
         *,
-        handlers: dict[str, Handler],
+        handlers: dict[str, type[Handler]],
     ) -> None:
         super().__init__()
         self.handlers = handlers
@@ -152,7 +152,6 @@ class Ranobe2ebook(App):
                                 yield Switch(value=True, id="add_images", classes="swith_wo_border")
 
                         with RadioSet(classes="w-full mb-1"):
-                            
                             with Horizontal(classes="horizontal "):
                                 yield Label("Сохранять в кеш       ")
                                 yield Switch(value=False, id="save_to_cache", classes="swith_wo_border")

@@ -300,39 +300,52 @@ class EpubHandler(Handler):
 
         book: epub.EpubBook = epub.EpubBook()
         book.set_title(title)
-
-        book.set_language("ru")
-        for author in ranobe_data.get("authors"):  # type: ignore
-            book.add_author(author.get("name"))
-
-        cover_url = ranobe_data.get("cover").get("default")  # type: ignore
         try:
-            book.set_cover(
-                cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1], True), False
+            book.set_language("ru")
+            for author in ranobe_data.get("authors"):  # type: ignore
+                book.add_author(author.get("name"))
+
+            cover_url = ranobe_data.get("cover").get("default")  # type: ignore
+            try:
+                book.set_cover(
+                    cover_url.split("/")[-1], get_image_content(cover_url, cover_url.split(".")[-1], True), False
+                )
+            except Exception as e:
+                logger.error(f"Could not download cover image from {cover_url}: {e}")
+                self.log_func(f"Не удалось скачать обложку: {e}")
+
+            book.add_metadata(
+                "DC",
+                "subject",
+                " ".join([genre.get("name") for genre in ranobe_data.get("genres")]),  # type: ignore
+            )
+
+            if isinstance(ranobe_data.get("summary"), dict) and ranobe_data.get("summary"):
+                description = str(self._tag_parser(ranobe_data["summary"]["content"][0], images={}))
+
+            elif isinstance(ranobe_data.get("summary"), str):
+                description = ranobe_data["summary"].replace("\n", "<p>")
+
+            else:
+                description = ""
+
+            book.add_metadata("DC", "description", description)  # type: ignore
+            book.add_metadata("DC", "contributor", "Ranobe2ebook")
+            book.add_metadata("DC", "source", "ranobelib.me")
+            book.add_metadata(
+                None,
+                "meta",
+                "",
+                {
+                    "name": "series",
+                    "content": ranobe_data.get("franchise")[0].get("name")  # type: ignore
+                    if ranobe_data.get("franchise")
+                    else ranobe_data.get("name"),
+                },
             )
         except Exception as e:
-            logger.error(f"Could not download cover image from {cover_url}: {e}")
-            self.log_func(f"Не удалось скачать обложку: {e}")
-
-        book.add_metadata(
-            "DC",
-            "subject",
-            " ".join([genre.get("name") for genre in ranobe_data.get("genres")]),  # type: ignore
-        )
-        book.add_metadata("DC", "description", ranobe_data.get("summary").replace("\n", "<p>"))  # type: ignore
-        book.add_metadata("DC", "contributor", "Ranobe2ebook")
-        book.add_metadata("DC", "source", "ranobelib.me")
-        book.add_metadata(
-            None,
-            "meta",
-            "",
-            {
-                "name": "series",
-                "content": ranobe_data.get("franchise")[0].get("name")  # type: ignore
-                if ranobe_data.get("franchise")
-                else ranobe_data.get("name"),
-            },
-        )
+            logger.error(f"Could not set book metadata: {e}\n\nranobe_data: {ranobe_data}")
+            self.log_func("Ошибка при подготовке книги: " + str(e))
 
         self.log_func("Подготовили книгу.")
 
