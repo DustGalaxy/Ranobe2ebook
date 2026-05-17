@@ -310,6 +310,13 @@ class Ranobe2ebook(App):
         url = urlparse(self.query_one("#input_link").value)  # type: ignore
         self.slug = url.path.split("/")[-1]
 
+        log.write_line("\nПолучаем список глав...")
+        self.chapters_data = get_chapters_data(self.slug)  # type: ignore
+        if self.chapters_data is None or len(self.chapters_data) == 0:
+            log.write_line("Не удалось получить список глав. \nГлавы отсутствуют или удалены.")
+            return
+
+        log.write_line("Получили список глав.")
         log.write_line("Получаем данные о ранобе...")
         self.ranobe_data = get_ranobe_data(self.slug)  # type: ignore
 
@@ -344,20 +351,12 @@ class Ranobe2ebook(App):
             self.query_one("#branch_list").set_options(options)  # type: ignore
             self.query_one("#branch_list").value = options[0][1]  # type: ignore
 
-        log.write_line("\nПолучаем список глав...")
-        self.chapters_data = get_chapters_data(self.slug)  # type: ignore
-        if self.chapters_data is None:
-            log.write_line("Не удалось получить список глав.")
-            return
-
         self.state.is_data_loaded = True
-        log.write_line("Получили список глав.")
 
         self.query_one("#input_start").value = "1"  # type: ignore
         self.query_one("#input_end").value = str(len(self.chapters_data))  # type: ignore
-
         total_len = len(str(len(self.chapters_data)))
-        chap_len = len(str(max(self.chapters_data, key=lambda x: len(str(x.number))).number))
+        chap_len = len(str(max(self.chapters_data or [], key=lambda x: len(str(x.number))).number))
         volume_len = len(str(self.chapters_data[-1].volume))
 
         self.query_one("#chapter_list").write_lines(  # pyright: ignore[reportAttributeAccessIssue]
